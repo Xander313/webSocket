@@ -1,0 +1,584 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<h2>Gestión de Catálogos</h2>
+
+<hr>
+
+<!-- ================= TIPO INCIDENTE ================= -->
+<h3>Tipo de Incidente</h3>
+
+<input id="ti_nombre" placeholder="Nombre">
+<input id="ti_desc" placeholder="Descripción">
+<button onclick="crearTipoIncidente()">Guardar</button>
+
+<table border="1" width="100%">
+<thead>
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Descripción</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tablaTI"></tbody>
+</table>
+
+<hr>
+
+<!-- ================= SEVERIDAD ================= -->
+<h3>Severidad</h3>
+
+<input id="sev_nombre" placeholder="Nombre">
+<input id="sev_nivel" type="number" placeholder="Nivel">
+<button onclick="crearSeveridad()">Guardar</button>
+
+<table border="1" width="100%">
+<thead>
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Nivel</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tablaSev"></tbody>
+</table>
+
+<hr>
+
+<!-- ================= ESTADO INCIDENTE ================= -->
+<h3>Estado Incidente</h3>
+
+<input id="est_nombre" placeholder="Nombre">
+<button onclick="crearEstado()">Guardar</button>
+
+<table border="1" width="100%">
+<thead>
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tablaEst"></tbody>
+</table>
+
+
+
+
+
+
+
+<hr>
+
+<h3>Recursos</h3>
+
+<input id="rec_nombre" placeholder="Nombre">
+<select id="rec_tipo"></select>
+<select id="rec_estado"></select>
+<input id="rec_capacidad" type="number" placeholder="Capacidad">
+
+<button onclick="crearRecurso()">Guardar</button>
+
+<table border="1" width="100%">
+<thead>
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Tipo</th>
+<th>Estado</th>
+<th>Capacidad</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tablaRec"></tbody>
+</table>
+
+
+
+<hr>
+
+<h3>Tipo de Recurso</h3>
+
+<input id="tr_nombre" placeholder="Nombre">
+<input id="tr_desc" placeholder="Descripción">
+<button onclick="crearTipoRecurso()">Guardar</button>
+
+<table border="1" width="100%">
+<thead>
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Descripción</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tablaTR"></tbody>
+</table>
+
+
+<hr>
+
+<h3>Estado de Recurso</h3>
+
+<input id="er_nombre" placeholder="Nombre">
+<button onclick="crearEstadoRecurso()">Guardar</button>
+
+<table border="1" width="100%">
+<thead>
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tablaER"></tbody>
+</table>
+
+
+
+
+
+
+<script>
+
+
+async function cargarER(){
+    const res = await authFetch("/api/catalogos/estado-recurso/");
+    const data = await res.json();
+
+    tablaER.innerHTML="";
+    data.forEach(x=>{
+        tablaER.innerHTML+=`
+        <tr>
+            <td>${x.id}</td>
+            <td contenteditable="true" id="ern${x.id}">
+              ${x.nombre}
+            </td>
+            <td>
+                <button onclick="editarER(${x.id})">✏️</button>
+                <button onclick="eliminarER(${x.id})">🗑</button>
+            </td>
+        </tr>`;
+    });
+}
+
+async function crearEstadoRecurso(){
+    await authFetch("/api/catalogos/estado-recurso/",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: er_nombre.value
+        })
+    });
+
+    er_nombre.value="";
+    cargarER();
+    cargarCombosRecursos();
+    cargarRecursos();
+}
+
+async function editarER(id){
+
+    await authFetch(`/api/catalogos/estado-recurso/${id}/`,{
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: document.getElementById("ern"+id).innerText
+        })
+    });
+
+    alert("Actualizado");
+    cargarCombosRecursos();
+    cargarRecursos();
+}
+
+async function eliminarER(id){
+
+    if(!confirm("¿Eliminar estado?")) return;
+
+    await authFetch(`/api/catalogos/estado-recurso/${id}/`,{
+        method:"DELETE"
+    });
+
+    cargarER();
+    cargarCombosRecursos();
+    cargarRecursos();
+}
+
+
+
+
+async function cargarTR(){
+    const res = await authFetch("/api/catalogos/tipo-recurso/");
+    const data = await res.json();
+
+    tablaTR.innerHTML="";
+    data.forEach(x=>{
+        tablaTR.innerHTML+=`
+        <tr>
+            <td>${x.id}</td>
+            <td contenteditable="true" id="trn${x.id}">
+              ${x.nombre}
+            </td>
+            <td contenteditable="true" id="trd${x.id}">
+              ${x.descripcion||""}
+            </td>
+            <td>
+                <button onclick="editarTR(${x.id})">✏️</button>
+                <button onclick="eliminarTR(${x.id})">🗑</button>
+            </td>
+        </tr>`;
+    });
+}
+
+async function crearTipoRecurso(){
+    await authFetch("/api/catalogos/tipo-recurso/",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: tr_nombre.value,
+            descripcion: tr_desc.value
+        })
+    });
+
+    tr_nombre.value="";
+    tr_desc.value="";
+    cargarTR();
+    cargarCombosRecursos();
+    cargarRecursos();
+}
+
+async function editarTR(id){
+
+    await authFetch(`/api/catalogos/tipo-recurso/${id}/`,{
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: document.getElementById("trn"+id).innerText,
+            descripcion: document.getElementById("trd"+id).innerText
+        })
+    });
+
+    alert("Actualizado");
+    cargarCombosRecursos();
+    cargarRecursos();
+}
+
+async function eliminarTR(id){
+
+    if(!confirm("¿Eliminar tipo de recurso?")) return;
+
+    await authFetch(`/api/catalogos/tipo-recurso/${id}/`,{
+        method:"DELETE"
+    });
+
+    cargarTR();
+    cargarCombosRecursos();
+    cargarRecursos();
+}
+
+
+
+
+async function cargarCombosRecursos(){
+
+    const [r1,r2] = await Promise.all([
+        authFetch("/api/catalogos/tipo-recurso/"),
+        authFetch("/api/catalogos/estado-recurso/")
+    ]);
+
+    const tipos = await r1.json();
+    const ests = await r2.json();
+
+    rec_tipo.innerHTML="";
+    rec_estado.innerHTML="";
+
+    tipos.forEach(x=>{
+        rec_tipo.innerHTML+=`
+          <option value="${x.id}">${x.nombre}</option>`;
+    });
+
+    ests.forEach(x=>{
+        rec_estado.innerHTML+=`
+          <option value="${x.id}">${x.nombre}</option>`;
+    });
+}
+
+
+async function cargarRecursos(){
+
+    const res = await authFetch("/api/recursos/");
+    const data = await res.json();
+
+    tablaRec.innerHTML="";
+
+    data.forEach(x=>{
+        tablaRec.innerHTML+=`
+        <tr>
+          <td>${x.id}</td>
+          <td contenteditable="true" id="rn${x.id}">
+            ${x.nombre}
+          </td>
+          <td>${x.tipo_nombre}</td>
+          <td>${x.estado_nombre}</td>
+          <td contenteditable="true" id="rc${x.id}">
+            ${x.capacidad}
+          </td>
+          <td>
+            <button onclick="editarRecurso(${x.id})">✏️</button>
+            <button onclick="eliminarRecurso(${x.id})">🗑</button>
+          </td>
+        </tr>`;
+    });
+}
+
+async function crearRecurso(){
+
+    await authFetch("/api/recursos/",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: rec_nombre.value,
+            tipo: rec_tipo.value,
+            estado: rec_estado.value,
+            capacidad: rec_capacidad.value
+        })
+    });
+
+    rec_nombre.value="";
+    rec_capacidad.value="";
+
+    cargarRecursos();
+}
+
+async function editarRecurso(id){
+
+    await authFetch(`/api/recursos/${id}/`,{
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: document.getElementById("rn"+id).innerText,
+            capacidad: document.getElementById("rc"+id).innerText
+        })
+    });
+
+    alert("Recurso actualizado");
+}
+
+async function eliminarRecurso(id){
+
+    if(!confirm("¿Eliminar recurso?")) return;
+
+    await authFetch(`/api/recursos/${id}/`,{
+        method:"DELETE"
+    });
+
+    cargarRecursos();
+}
+
+
+
+
+
+// =================================================
+// TIPO INCIDENTE
+// =================================================
+
+async function cargarTI(){
+    const res = await authFetch("/api/catalogos/tipo-incidente/");
+    const data = await res.json();
+
+    tablaTI.innerHTML="";
+    data.forEach(x=>{
+        tablaTI.innerHTML+=`
+        <tr>
+            <td>${x.id}</td>
+            <td contenteditable="true" id="tin${x.id}">${x.nombre}</td>
+            <td contenteditable="true" id="tid${x.id}">${x.descripcion}</td>
+            <td>
+                <button onclick="editarTI(${x.id})">✏️</button>
+                <button onclick="eliminarTI(${x.id})">🗑</button>
+            </td>
+        </tr>`;
+    })
+}
+
+async function crearTipoIncidente(){
+    await authFetch("/api/catalogos/tipo-incidente/",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: ti_nombre.value,
+            descripcion: ti_desc.value
+        })
+    })
+    ti_nombre.value=""
+    ti_desc.value=""
+    cargarTI()
+}
+
+async function editarTI(id){
+
+    await authFetch(`/api/catalogos/tipo-incidente/${id}/`,{
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: document.getElementById("tin"+id).innerText,
+            descripcion: document.getElementById("tid"+id).innerText
+        })
+    })
+
+    alert("Actualizado correctamente")
+}
+
+async function eliminarTI(id){
+    if(!confirm("¿Eliminar registro?")) return;
+
+    await authFetch(`/api/catalogos/tipo-incidente/${id}/`,{
+        method:"DELETE"
+    })
+
+    cargarTI()
+}
+
+// =================================================
+// SEVERIDAD
+// =================================================
+
+async function cargarSev(){
+    const res = await authFetch("/api/catalogos/severidad/");
+    const data = await res.json();
+
+    tablaSev.innerHTML="";
+    data.forEach(x=>{
+        tablaSev.innerHTML+=`
+        <tr>
+            <td>${x.id}</td>
+            <td contenteditable="true" id="sn${x.id}">${x.nombre}</td>
+            <td contenteditable="true" id="sl${x.id}">${x.nivel}</td>
+            <td>
+                <button onclick="editarSev(${x.id})">✏️</button>
+                <button onclick="eliminarSev(${x.id})">🗑</button>
+            </td>
+        </tr>`;
+    })
+}
+
+async function crearSeveridad(){
+    await authFetch("/api/catalogos/severidad/",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: sev_nombre.value,
+            nivel: sev_nivel.value
+        })
+    })
+    sev_nombre.value=""
+    sev_nivel.value=""
+    cargarSev()
+}
+
+async function editarSev(id){
+
+    await authFetch(`/api/catalogos/severidad/${id}/`,{
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: document.getElementById("sn"+id).innerText,
+            nivel: document.getElementById("sl"+id).innerText
+        })
+    })
+
+    alert("Actualizado")
+}
+
+async function eliminarSev(id){
+
+    if(!confirm("¿Eliminar severidad?")) return;
+
+    await authFetch(`/api/catalogos/severidad/${id}/`,{
+        method:"DELETE"
+    })
+
+    cargarSev()
+}
+
+// =================================================
+// ESTADO INCIDENTE
+// =================================================
+
+async function cargarEst(){
+    const res = await authFetch("/api/catalogos/estado-incidente/");
+    const data = await res.json();
+
+    tablaEst.innerHTML="";
+    data.forEach(x=>{
+        tablaEst.innerHTML+=`
+        <tr>
+            <td>${x.id}</td>
+            <td contenteditable="true" id="en${x.id}">${x.nombre}</td>
+            <td>
+                <button onclick="editarEstado(${x.id})">✏️</button>
+                <button onclick="eliminarEstado(${x.id})">🗑</button>
+            </td>
+        </tr>`;
+    })
+}
+
+async function crearEstado(){
+    await authFetch("/api/catalogos/estado-incidente/",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: est_nombre.value
+        })
+    })
+    est_nombre.value=""
+    cargarEst()
+}
+
+async function editarEstado(id){
+
+    await authFetch(`/api/catalogos/estado-incidente/${id}/`,{
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            nombre: document.getElementById("en"+id).innerText
+        })
+    })
+
+    alert("Actualizado")
+}
+
+async function eliminarEstado(id){
+
+    if(!confirm("¿Eliminar estado?")) return;
+
+    await authFetch(`/api/catalogos/estado-incidente/${id}/`,{
+        method:"DELETE"
+    })
+
+    cargarEst()
+}
+
+// =================================================
+// INIT
+// =================================================
+document.addEventListener("DOMContentLoaded",()=>{
+    cargarTI()
+    cargarSev()
+    cargarEst()
+
+    cargarTR();
+    cargarER();
+
+    cargarCombosRecursos();
+    cargarRecursos();
+})
+
+</script>
+
+{% endblock %}

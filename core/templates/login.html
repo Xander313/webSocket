@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <style>
+        body{font-family:Arial;background:#f2f2f2}
+        .box{width:300px;margin:100px auto;background:#fff;padding:20px}
+        input,button{width:100%;margin-top:10px;padding:8px}
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h3>Iniciar sesión</h3>
+
+    <input id="user" placeholder="Usuario">
+    <input id="pass" type="password" placeholder="Contraseña">
+
+    <button onclick="login()">Entrar</button>
+
+    <p id="msg"></p>
+</div>
+
+<script>
+async function login(){
+
+    const username = document.getElementById("user").value;
+    const password = document.getElementById("pass").value;
+
+    const res = await fetch("/api/login/", {
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+            username:username,
+            password:password
+        })
+    })
+
+    const data = await res.json();
+
+if(res.ok){
+
+    localStorage.setItem("token", data.tokens.access);
+    localStorage.setItem("refresh", data.tokens.refresh);
+
+    document.cookie = `access=${data.tokens.access}; path=/`;
+
+    if(data.rol=="admin") location.href="/adm/catalogo/";
+    if(data.rol=="operador") location.href="/oper/incidente/";
+
+}
+
+else{
+        document.getElementById("msg").innerText="Credenciales incorrectas";
+    }
+}
+</script>
+
+</body>
+</html>

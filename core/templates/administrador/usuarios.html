@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<h2>Gestión de Usuarios</h2>
+
+<button onclick="mostrarFormulario()">➕ Nuevo usuario</button>
+
+<table border="1" width="100%" id="tablaUsuarios">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Usuario</th>
+            <th>Email</th>
+            <th>Rol</th>
+            <th>Activo</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<hr>
+
+<div id="formUsuario" style="display:none">
+    <h3>Crear usuario</h3>
+
+    <input id="username" placeholder="Usuario">
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Contraseña">
+
+    <select id="rol">
+        <option value="admin">Admin</option>
+        <option value="operador">Operador</option>
+        <option value="rescatista">Rescatista</option>
+        <option value="auditor">Auditor</option>
+    </select>
+
+    <button onclick="crearUsuario()">Guardar</button>
+</div>
+
+<script>
+async function cargarUsuarios(){
+
+    const res = await authFetch("/api/usuarios/");
+    const data = await res.json();
+
+    const tbody = document.querySelector("#tablaUsuarios tbody");
+    tbody.innerHTML = "";
+
+    data.forEach(u=>{
+    tbody.innerHTML += `
+    <tr>
+        <td>${u.id}</td>
+        <td>${u.username}</td>
+        <td>${u.email}</td>
+        <td>${u.rol}</td>
+        <td>${u.activo ? "SI" : "NO"}</td>
+        <td>
+            ${
+                u.activo
+                ? `<button onclick="desactivar(${u.id})">❌</button>`
+                : `<button onclick="activar(${u.id})">✅</button>`
+            }
+        </td>
+    </tr>
+    `;
+})
+
+}
+
+async function crearUsuario(){
+
+    const body = {
+        username: username.value,
+        email: email.value,
+        password: password.value,
+        rol: rol.value
+    };
+
+    await authFetch("/api/usuarios/",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(body)
+    });
+
+    alert("Usuario creado");
+    cargarUsuarios();
+}
+
+async function desactivar(id){
+
+    await authFetch(`/api/usuarios/${id}/`,{
+        method:"DELETE"
+    });
+
+    cargarUsuarios();
+}
+
+
+async function activar(id){
+
+    await authFetch(`/api/usuarios/${id}/`,{
+        method:"PUT",
+        body: JSON.stringify({activo:true})
+    });
+
+    cargarUsuarios();
+}
+
+
+function mostrarFormulario(){
+    formUsuario.style.display="block";
+}
+
+cargarUsuarios();
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    cargarUsuarios();
+});
+</script>
+
+
+{% endblock %}
