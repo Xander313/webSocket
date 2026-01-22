@@ -41,25 +41,44 @@
     <script>
     // 1. Función authFetch - LA MÁS SIMPLE (igual que tu auth.js)
     async function authFetch(url, options = {}) {
+    try {
         const token = localStorage.getItem("token");
         
+        // Crear headers base
         const headers = {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Authorization': `Bearer ${token}`
         };
         
-        // Combinar headers
+        // SOLO agregar Content-Type: application/json si:
+        // 1. No es FormData
+        // 2. El usuario no especificó otros headers
+        // 3. No estamos enviando un cuerpo vacío (como en DELETE)
+        const isFormData = options.body instanceof FormData;
+        const hasBody = options.body && !(options.method === 'GET' || options.method === 'HEAD');
+        const userSpecifiedContentType = options.headers && options.headers['Content-Type'];
+        
+        if (!isFormData && hasBody && !userSpecifiedContentType) {
+            headers['Content-Type'] = 'application/json';
+        }
+        
+        // Si el usuario proporciona headers, combinarlos
         if (options.headers) {
             Object.assign(headers, options.headers);
         }
         
+        // Hacer la petición
         const response = await fetch(url, {
             ...options,
             headers: headers
         });
         
         return response;
+        
+    } catch (error) {
+        console.error("Error en authFetch:", error);
+        throw error;
     }
+}
     
     // 2. Función para obtener rol
     function getUserRole() {
@@ -281,9 +300,7 @@
                 <!-- Menú común a todos -->
                 <div class="shared-menu mb-4">
                     <h6 class="text-light px-3 mb-3">NAVEGACIÓN</h6>
-                    <a href="/" class="active">
-                        <i class="fas fa-home me-2"></i>Dashboard
-                    </a>
+                    
                 </div>
                 
                 <!-- Menú de ADMINISTRADOR (solo visible para admin) -->
@@ -303,21 +320,11 @@
                     <a href="/oper/incidente/">
                         <i class="fas fa-exclamation-triangle me-2"></i>Incidentes
                     </a>
-                    <a href="/oper/reportes/">
-                        <i class="fas fa-chart-bar me-2"></i>Reportes
-                    </a>
+                    
                 </div>
                 
                 <!-- Menú compartido (visible para todos) -->
-                <div class="shared-menu mb-4">
-                    <h6 class="text-light px-3 mb-3">HERRAMIENTAS</h6>
-                    <a href="/recursos/">
-                        <i class="fas fa-tools me-2"></i>Recursos
-                    </a>
-                    <a href="/configuracion/">
-                        <i class="fas fa-cog me-2"></i>Configuración
-                    </a>
-                </div>
+                
             </div>
 
             <!-- Contenido Principal -->
