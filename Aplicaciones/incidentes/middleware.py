@@ -3,7 +3,22 @@ from channels.db import database_sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 import json
 from .models import AuditoriaAccion
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
+def enviar_ws_auditoria(data):
+    channel_layer = get_channel_layer()
+
+    async_to_sync(channel_layer.group_send)(
+        "auditoria",
+        {
+            "type": "enviar_evento",
+            "data": {
+                "accion": "auditoria_update",
+                "payload": data
+            }
+        }
+    )
 
 @database_sync_to_async
 def get_user_from_token(token: str):
@@ -76,7 +91,7 @@ class AuditoriaMiddleware:
             request.META.get("REMOTE_ADDR")
         )
 
-        AuditoriaAccion.objects.create(
+        log = AuditoriaAccion.objects.create(
             usuario=request.user,
             rol=getattr(request.user.perfil, "rol", ""),
             accion=self.detectar_accion(request.method),
@@ -88,6 +103,18 @@ class AuditoriaMiddleware:
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
             data=data
         )
+
+        enviar_ws_auditoria({
+            "id": log.id,
+            "usuario": request.user.username,
+            "rol": log.rol,
+            "accion": log.accion,
+            "endpoint": log.endpoint,
+            "tabla": log.tabla,
+            "registro_id": log.registro_id,
+            "fecha": str(log.fecha),
+        })
+
 
         return response
 
@@ -109,7 +136,12 @@ class AuditoriaMiddleware:
         return "general"
 
     def detectar_id(self, path):
-        try:
-            return int(path.strip("/").split("/")[-1])
-        except:
-            return None
+
+        partes = path.strip("/").split("/")
+
+        for p in partes:
+            if p.isdigit():
+                return int(p)
+
+        return None
+

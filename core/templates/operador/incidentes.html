@@ -2,317 +2,1195 @@
 {% load static %}
 {% block content %}
 
-<h2>Panel Operador - Gestión de Incidentes</h2>
-<hr>
+<style>
+  #mapPick, #mapVer { width: 100%; height: 420px; border-radius: 10px; }
+  .listbox { min-height: 240px; }
+  .small-muted { font-size: .85rem; color: #6c757d; }
+</style>
 
-<!-- ================= REGISTRAR INCIDENTE ================= -->
-<h3>Registrar Incidente</h3>
+<div class="container-fluid">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="mb-0">Panel Operador - Gestión de Incidentes</h2>
+  </div>
 
-<select id="tipo"></select>
-<select id="severidad"></select>
-<select id="estado"></select>
+  <!-- ================= REGISTRAR INCIDENTE ================= -->
+  <div class="card mb-4">
+    <div class="card-header text-white" style="background:#004289;">
+      <strong>Registrar incidente</strong>
+    </div>
 
-<input id="lat" placeholder="Latitud">
-<input id="lng" placeholder="Longitud">
+    <div class="card-body">
+      <div class="row g-2 mb-2">
+        <div class="col-md-4">
+          <label class="form-label mb-1">Tipo</label>
+          <select id="tipo" class="form-select"></select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label mb-1">Severidad</label>
+          <select id="severidad" class="form-select"></select>
+        </div>
+        <div class="col-md-4" style="display: none;">
+          <label class="form-label mb-1">Estado (inicial)</label>
+          <select id="estado" class="form-select"></select>
+          <div class="small-muted">Al crear, el estado se coloca en el primer estado (ID más bajo).</div>
+        </div>
+        <div class="col-md-4 d-flex align-items-end gap-2">
+          <button type="button" class="btn btn-outline-secondary w-100" id="btnPickMap">Seleccionar ubicación</button>
+        </div>
+      </div>
 
-<textarea id="desc" placeholder="Descripción"></textarea>
+      <div class="row g-2 mb-2" style="display: none;">
+        <div class="col-md-4">
+          <label class="form-label mb-1">Latitud</label>
+          <input id="lat" class="form-control" placeholder="Latitud" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label mb-1">Longitud</label>
+          <input id="lng" class="form-control" placeholder="Longitud" />
+        </div>
 
-<input type="file" id="evidencia">
+      </div>
 
-<button onclick="crearIncidente()">Registrar</button>
+      <div class="mb-2">
+        <label class="form-label mb-1">Descripción</label>
+        <textarea id="desc" class="form-control" rows="3" placeholder="Descripción"></textarea>
+      </div>
 
-<hr>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-8">
+          <label class="form-label mb-1">Evidencia (opcional: JPG/PNG/PDF)</label>
+          <input type="file" id="evidencia" class="form-control" />
+        </div>
+        <div class="col-md-4">
+          <button class="btn btn-primary w-100" id="btnCrear">Registrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<!-- ================= LISTADO ================= -->
-<h3>Listado de Incidentes</h3>
-
-<table border="1" width="100%">
-<thead>
-<tr>
-<th>ID</th>
-<th>Tipo</th>
-<th>Severidad</th>
-<th>Estado</th>
-<th>Ubicación</th>
-<th>Acciones</th>
-</tr>
-</thead>
-<tbody id="tabla"></tbody>
-</table>
+  <!-- ================= LISTADO ================= -->
 
 
-<!-- MODAL ASIGNAR RECURSOS -->
-<div class="modal fade" id="modalAsignar" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+  <div class="card">
+    <div class="card-header">
+      <strong>Listado de incidentes</strong>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:70px">ID</th>
+              <th>Tipo</th>
+              <th>Severidad</th>
+              <th>Estado</th>
+              <th>Descripción</th>
+              <th>Ubicación</th>
+              <th>Evidencia</th>
+              <th>Rescatista</th>
+              <th>Recursos</th>
+              <th style="width:170px">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL ASIGNACIÓN ================= -->
+<div class="modal fade" id="modalAsignacion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content">
-
-      <div class="modal-header">
-        <h5 class="modal-title">Asignar recursos</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header text-white" style="background:#004289;">
+        <h5 class="modal-title">Asignación de recursos</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
       <div class="modal-body">
+        <div class="alert alert-info mb-3">
+        </div>
 
-        <p>Seleccione los recursos disponibles:</p>
+        <!-- 1) Rescatista -->
+        <div class="mb-3">
+          <label class="form-label">1 Rescatista a asignar</label>
+          <select class="form-select" id="ddlRescatista"></select>
+          <div class="small-muted">Se cargan usuarios con rol <strong>rescatista</strong>.</div>
+        </div>
 
-        <div id="listaRecursos" class="row g-2"></div>
+        <div class="row g-3">
+          <!-- 2) Disponibles -->
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header d-flex align-items-center justify-content-between">
+                <strong>2 Recursos disponibles</strong>
+                <span class="badge bg-success" id="badgeDisponibles">0</span>
+              </div>
+              <div class="card-body">
+                <div class="mb-2">
+                  <label class="form-label mb-1">Filtro por tipo</label>
+                  <select class="form-select" id="filtroTipoRecurso"></select>
+                </div>
+                <select class="form-select listbox" id="lstDisponibles" size="10"></select>
+                <div class="small-muted mt-2">Solo se muestran recursos con estado <strong>Disponible</strong>.</div>
+              </div>
+            </div>
+          </div>
 
+          <!-- 3) Asignados -->
+          <div class="col-lg-6">
+            <div class="card">
+              <div class="card-header d-flex align-items-center justify-content-between">
+                <strong>3 Recursos asignados</strong>
+                <span class="badge bg-primary" id="badgeAsignados">0</span>
+              </div>
+              <div class="card-body">
+                <select class="form-select listbox" id="lstAsignados" size="10"></select>
+                <div class="small-muted mt-2">Al guardar, se sincroniza la asignación con el incidente.</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="modal-footer">
-        <button 
-          type="button" 
-          class="btn btn-secondary" 
-          data-bs-dismiss="modal">
-          Cancelar
-        </button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button class="btn btn-primary" id="btnGuardarAsignacion">Guardar asignación</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-        <button 
-          type="button" 
-          class="btn btn-primary"
-          onclick="confirmarAsignacion()">
-          Asignar
-        </button>
+<!-- ================= MODAL MAPA VER ================= -->
+<div class="modal fade" id="modalMapaVer" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Ubicación del incidente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="mapVer"></div>
+        <div class="small-muted mt-2" id="txtLatLng"></div>
+      </div>
+      <div class="modal-footer">
+        <a class="btn btn-outline-secondary" id="btnAbrirEnGoogle" target="_blank" rel="noopener">Abrir en Google Maps</a>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL MAPA PICK ================= -->
+<div class="modal fade" id="modalMapaPick" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar ubicación (clic en el mapa)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="mapPick"></div>
+        <div class="small-muted mt-2">Al hacer clic, se rellenan latitud y longitud en el formulario.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Listo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="modalHistorial" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title">📜 Trazabilidad del incidente</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <ul class="list-group" id="listaHistorial"></ul>
       </div>
 
     </div>
   </div>
 </div>
 
+<div class="modal fade" id="modalHistoricos">
+ <div class="modal-dialog modal-xl">
+  <div class="modal-content">
+
+<div class="modal-header bg-dark text-white">
+<h5>📘 Incidentes históricos</h5>
+<button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+
+<div class="modal-body">
+<table class="table table-bordered">
+<thead>
+<tr>
+<th>ID</th>
+<th>Estado</th>
+<th>Fecha</th>
+<th>Acción</th>
+</tr>
+</thead>
+<tbody id="tablaHistoricos"></tbody>
+</table>
+</div>
+
+  </div>
+ </div>
+</div>
+
+
+<button id="btnHistoricos" class="btn btn-dark shadow-lg">
+📘
+</button>
+
+<style>
+#btnHistoricos{
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  font-size: 22px;
+  z-index: 999;
+}
+</style>
+
+
 
 <script>
-// ================= SOCKET =================
 
+function aplicarFiltros(){
+
+ let est = document.getElementById("fEstado").value;
+ let sev = document.getElementById("fSeveridad").value;
+ let fecha = document.getElementById("fFecha").value;
+
+ let filas = document.querySelectorAll("#tabla tr");
+
+ filas.forEach(tr => {
+
+ let ok = true;
+
+ if(est && !tr.innerText.includes(est)) ok=false;
+ if(sev && !tr.innerText.includes(sev)) ok=false;
+ if(fecha && !tr.innerText.includes(fecha)) ok=false;
+
+ tr.style.display = ok ? "" : "none";
+ });
+}
+
+
+  let modalHistoricos = new bootstrap.Modal(
+ document.getElementById("modalHistoricos")
+);
+
+document.getElementById("btnHistoricos")
+.onclick = cargarHistoricos;
+
+
+async function cargarHistoricos(){
+
+ let data = await fetchJson("/api/incidentes/inactivos/");
+ let tb = document.getElementById("tablaHistoricos");
+
+ tb.innerHTML = "";
+
+ data.forEach(x => {
+
+ tb.innerHTML += `
+ <tr>
+   <td>${x.id}</td>
+   <td>${x.estado_nombre}</td>
+   <td>${formatFecha(x.fecha_creacion)}</td>
+   <td>
+     <button class="btn btn-sm btn-outline-dark"
+     onclick="abrirHistorial(${x.id})">
+     📜
+     </button>
+   </td>
+ </tr>`;
+ });
+
+ modalHistoricos.show();
+}
+
+</script>
+
+<script>
+function generarMensaje(e){
+
+  let rol = (e.rol || "").toLowerCase();
+  let user = e.usuario || "Usuario";
+  let ep = e.endpoint || "";
+  let acc = e.accion || "";
+
+  // Normalizar rol
+  rol = rol.charAt(0).toUpperCase() + rol.slice(1);
+
+  // CREAR
+  if(acc === "CREATE" && ep.includes("/incidentes/") && !ep.includes("asignar")){
+    return `${rol} ${user} creó el incidente`;
+  }
+
+  // ASIGNAR
+  if(ep.includes("/asignar/")){
+    return `${rol} ${user} asignó o retiró recursos`;
+  }
+
+  // CAMBIO ESTADO
+  if(ep.includes("/estado/")){
+    return `${rol} ${user} avanzó el estado del incidente`;
+  }
+
+  // ELIMINAR
+  if(acc === "DELETE"){
+    return `${rol} ${user} eliminó el incidente`;
+  }
+
+  // UPDATE genérico
+  if(acc === "UPDATE"){
+    return `${rol} ${user} actualizó información del incidente`;
+  }
+
+  // fallback
+  return `${rol} ${user} realizó una acción en el sistema`;
+}
+
+</script>
+
+
+
+<script>
+
+let modalHistorial = null;
+let historialAbierto = false;
+let incidenteHistorialActual = null;
+
+document.addEventListener("DOMContentLoaded", function(){
+
+  modalHistorial = new bootstrap.Modal(
+    document.getElementById("modalHistorial")
+  );
+
+  // Reset al cerrar
+  document.getElementById("modalHistorial")
+  .addEventListener("hidden.bs.modal", ()=>{
+      historialAbierto = false;
+      incidenteHistorialActual = null;
+  });
+
+});
+
+
+// ---------------- ABRIR MODAL ----------------
+async function abrirHistorial(id){
+
+  incidenteHistorialActual = id;
+  historialAbierto = true;
+
+  let ul = document.getElementById("listaHistorial");
+  ul.innerHTML = "<li class='list-group-item'>Cargando...</li>";
+
+  let data = await fetchJson(
+    "/api/incidentes/" + id + "/auditoria/"
+  );
+
+  ul.innerHTML = "";
+
+  if(!data.length){
+    ul.innerHTML = `
+      <li class="list-group-item text-muted">
+        Sin historial
+      </li>`;
+  }
+
+  data.forEach(renderEvento);
+
+  modalHistorial.show();
+}
+
+function formatFecha(fecha){
+
+  let d = new Date(fecha);
+
+  return d.toLocaleString("es-EC", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+}
+
+
+// ---------------- RENDER EVENTO ----------------
+function renderEvento(e, prepend=false){
+
+  let li = document.createElement("li");
+  li.className = "list-group-item";
+
+  li.innerHTML = `
+    <b>${generarMensaje(e)}</b>
+    <br>
+    <b>Fecha de evento:</b> ${formatFecha(e.fecha)}
+
+    <br>
+    <small class="text-muted">${e.endpoint}</small>
+  `;
+
+  let ul = document.getElementById("listaHistorial");
+
+  if(prepend)
+      ul.prepend(li);
+  else
+      ul.appendChild(li);
+}
+
+
+// ---------------- REALTIME ----------------
+function actualizarHistorialRealtime(e){
+
+  if(!historialAbierto) return;
+  if(e.registro_id != incidenteHistorialActual) return;
+
+  renderEvento(e, true); // prepend = true
+}
+
+</script>
+
+
+
+<script>
 const token = localStorage.getItem("token");
 
-const socket = new WebSocket(
+const ws = new WebSocket(
     `ws://${window.location.host}/ws/incidentes/?token=${token}`
 );
 
+ws.onopen = () => {
+  console.log("🟢 WS conectado");
+};
 
-socket.onmessage = function(e){
 
-    const data = JSON.parse(e.data);
+ws.onmessage = (e) => {
 
-    // 🔔 Si cambió un catálogo → recargar combos
-    if(data.accion === "catalogo_actualizado"){
-        console.log("Catálogo actualizado:", data.tabla);
-        cargarDDL();
-    }
+  let data = JSON.parse(e.data);
+  console.log("📡 Evento WS:", data);
+
+  // catálogos
+  if(data.accion === "catalogo_actualizado"){
+      cargarCatalogos();
+  }
+
+  // incidentes
+  if(data.accion === "incidente_update"){
+      cargarIncidentes();
+  }
+
+  // 🔥 TRAZABILIDAD REALTIME
+  if(data.accion === "auditoria_update"){
+      actualizarHistorialRealtime(data.payload);
+  }
 };
 
 
 
 
-let incidenteActual = null;
-let modalAsignar;
-
-document.addEventListener("DOMContentLoaded",()=>{
-
-  modalAsignar = new bootstrap.Modal(
-      document.getElementById("modalAsignar")
-  );
-});
-
-async function abrirAsignacion(id){
-
-    incidenteActual = id;
-
-    const res = await authFetch(
-        "/api/recursos/disponibles/"
-    );
-
-    const data = await res.json();
-
-    let html = "";
-
-data.forEach(r=>{
-
-html += `
-<div class="col-md-6">
-  <div class="form-check border p-2 rounded">
-    <input 
-      class="form-check-input"
-      type="checkbox"
-      id="rec${r.id}"
-      value="${r.id}">
-
-    <label class="form-check-label" for="rec${r.id}">
-      <strong>${r.nombre}</strong><br>
-      <small>${r.tipo_nombre}</small>
-    </label>
-  </div>
-</div>`;
-});
-
-
-    listaRecursos.innerHTML = html;
-
-    modalAsignar.show();
-}
+ws.onerror = (e) => {
+  console.log("❌ WS error", e);
+};
 
 
 
+</script>
 
-async function confirmarAsignacion(){
 
-    const checks = 
-      document.querySelectorAll("#listaRecursos input:checked");
-
-    let arr = [];
-
-    checks.forEach(c=>arr.push(c.value));
-
-    if(arr.length == 0){
-        alert("Seleccione al menos un recurso");
-        return;
+<script>
+// ===== Fallback authFetch (si base.html no lo define) =====
+if(typeof window.authFetch !== "function"){
+  window.authFetch = function(url, options){
+    options = options || {};
+    options.headers = options.headers || {};
+    var token = null;
+    try { token = localStorage.getItem("token") || localStorage.getItem("access") || null; } catch(e) {}
+    if(token && !options.headers["Authorization"]){
+      options.headers["Authorization"] = "Bearer " + token;
     }
-
-    await authFetch(
-      `/api/incidentes/${incidenteActual}/asignar/`,
-      {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ recursos: arr })
-      }
-    );
-
-    alert("Recursos asignados");
-
-    modalAsignar.hide();   // 👈 ASÍ SE CIERRA
+    return fetch(url, options);
+  };
 }
 
-
-
-
-
-// ================= CARGAR DROPDOWNS =================
-
-async function cargarDDL(){
-
-    const [r1, r2, r3] = await Promise.all([
-        authFetch("/api/catalogos/tipo-incidente/"),
-        authFetch("/api/catalogos/severidad/"),
-        authFetch("/api/catalogos/estado-incidente/")
-    ]);
-
-    const tipos = await r1.json();
-    const sevs = await r2.json();
-    const ests = await r3.json();
-
-    // limpiar
-    tipo.innerHTML = "";
-    severidad.innerHTML = "";
-    estado.innerHTML = "";
-
-    // llenar
-    tipos.forEach(x=>{
-        tipo.innerHTML += `
-        <option value="${x.id}">${x.nombre}</option>`;
-    });
-
-    sevs.forEach(x=>{
-        severidad.innerHTML += `
-        <option value="${x.id}">${x.nombre}</option>`;
-    });
-
-    ests.forEach(x=>{
-        estado.innerHTML += `
-        <option value="${x.id}">${x.nombre}</option>`;
-    });
+// ================= HELPERS =================
+function safeText(v){
+  if(v === null || v === undefined) return "";
+  return String(v)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;");
 }
 
-// ================= REGISTRAR =================
-async function crearIncidente(){
-
-    const form = new FormData();
-    form.append("tipo", tipo.value);
-    form.append("severidad", severidad.value);
-    form.append("estado", estado.value);
-    form.append("descripcion", desc.value);
-    form.append("latitud", lat.value);
-    form.append("longitud", lng.value);
-
-    if(evidencia.files.length>0){
-        form.append("evidencia", evidencia.files[0]);
-    }
-
-    const res = await authFetch("/api/incidentes/",{
-        method:"POST",
-        body: form
-    });
-
-    if(!res.ok){
-        const err = await res.json();
-        alert("ERROR:\n"+ JSON.stringify(err));
-        return;
-    }
-
-    alert("Incidente registrado correctamente");
-    cargarIncidentes();
+function trunc(s, n){
+  if(s === null || s === undefined) return "";
+  s = String(s);
+  return s.length > n ? (s.slice(0, n-1) + "…") : s;
 }
 
-
-// ================= LISTAR =================
-
-async function cargarIncidentes(){
-
-    const res = await authFetch("/api/incidentes/");
-    const data = await res.json();
-
-    tabla.innerHTML="";
-    data.forEach(x=>{
-        tabla.innerHTML+=`
-        <tr>
-            <td>${x.id}</td>
-            <td>${x.tipo_nombre}</td>
-            <td>${x.severidad_nombre}</td>
-            <td>${x.estado_nombre}</td>
-            <td>${x.latitud}, ${x.longitud}</td>
-<td>
-  <button 
-    class="btn btn-sm btn-outline-primary"
-    onclick="abrirAsignacion(${x.id})">
-    🧰 Asignar
-  </button>
-
-  <button 
-    class="btn btn-sm btn-outline-warning"
-    onclick="cambiarEstado(${x.id})">
-    🔄
-  </button>
-</td>
-
-
-        </tr>`;
-    });
+function getFileUrl(x){
+  // x.evidencia puede venir como URL absoluta o como ruta relativa
+  if(!x) return "";
+  var e = x.evidencia;
+  if(!e) return "";
+  if(String(e).indexOf("http") === 0) return e;
+  // si viene tipo /media/.. o media/..
+  if(String(e).indexOf("/") === 0) return window.location.origin + e;
+  return window.location.origin + "/" + e;
 }
 
-// ================= CAMBIAR ESTADO =================
-
-async function cambiarEstado(id){
-
-    const nuevo = prompt("Ingrese ID nuevo estado:");
-
-    if(!nuevo) return;
-
-    await authFetch(`/api/incidentes/${id}/estado/`,{
-        method:"PUT",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({
-            estado: nuevo
-        })
-    });
-
-    cargarIncidentes();
+async function fetchJson(url, opts){
+  var r = await authFetch(url, opts || {});
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
 }
+
+// ================= STATE =================
+var estadosIncidente = [];
+var tiposRecurso = [];
+var incidenteActualId = null;
+
+// asignación modal state
+var recursosDisponibles = [];   // objetos {id, nombre, tipo, tipo_nombre}
+var recursosAsignados = [];     // objetos
+
+// mapas
+var modalVer = null;
+var modalPick = null;
+var modalAsign = null;
+var gMapVer = null;
+var gMarkerVer = null;
+var gMapPick = null;
+var gMarkerPick = null;
 
 // ================= INIT =================
+document.addEventListener("DOMContentLoaded", function(){
+  modalVer = new bootstrap.Modal(document.getElementById("modalMapaVer"));
+  modalPick = new bootstrap.Modal(document.getElementById("modalMapaPick"));
+  modalAsign = new bootstrap.Modal(document.getElementById("modalAsignacion"));
 
-document.addEventListener("DOMContentLoaded",()=>{
-    cargarDDL();
-    cargarIncidentes();
+  document.getElementById("btnCrear").addEventListener("click", crearIncidente);
+  document.getElementById("btnPickMap").addEventListener("click", abrirMapaPick);
+  document.getElementById("btnGuardarAsignacion").addEventListener("click", guardarAsignacion);
+
+  document.getElementById("filtroTipoRecurso").addEventListener("change", renderListasRecursos);
+
+  // mover con un solo clic
+  document.getElementById("lstDisponibles").addEventListener("change", function(){
+    moverSeleccionados("disponibles");
+  });
+  document.getElementById("lstAsignados").addEventListener("change", function(){
+    moverSeleccionados("asignados");
+  });
+
+  // Delegación de eventos en la tabla (evita onclick dentro del HTML string)
+  document.getElementById("tabla").addEventListener("click", function(e){
+    var el = e.target;
+    // sube hasta botón
+    while(el && el !== this && !(el.dataset && el.dataset.action)){
+      el = el.parentElement;
+    }
+    if(!el || el === this) return;
+
+    var action = el.dataset.action;
+    var id = parseInt(el.dataset.id, 10);
+
+    if(action === "asignar") abrirAsignacion(id);
+    if(action === "avanzar") avanzarEstado(id);
+    if(action === "eliminar") eliminarIncidente(id);
+    if(action === "mapa") abrirMapaVer(el.dataset.lat, el.dataset.lng);
+    if(action === "historial") abrirHistorial(id);
+
+  });
+
+  // cargar todo
+  (async function(){
+    await cargarCatalogos();
+    await cargarIncidentes();
+  })();
 });
+
+// ================= CATÁLOGOS =================
+async function cargarCatalogos(){
+  // tipos incidente, severidad, estados
+  var tipos = await fetchJson("/api/catalogos/tipo-incidente/");
+  var sevs  = await fetchJson("/api/catalogos/severidad/");
+  estadosIncidente = await fetchJson("/api/catalogos/estado-incidente/");
+
+  // tipos recurso para filtro
+  try {
+    tiposRecurso = await fetchJson("/api/catalogos/tipo-recurso/");
+  } catch(err){
+    tiposRecurso = [];
+  }
+
+  // poblar selects
+  fillSelect("tipo", tipos, "-- tipo --");
+  fillSelect("severidad", sevs, "-- severidad --");
+  fillSelect("estado", estadosIncidente, "-- estado --");
+
+  // estado inicial: primero por ID
+  if(estadosIncidente && estadosIncidente.length){
+    estadosIncidente.sort(function(a,b){ return a.id - b.id; });
+    document.getElementById("estado").value = String(estadosIncidente[0].id);
+  }
+
+  // filtro tipo recurso
+  fillSelect("filtroTipoRecurso", [{id:"", nombre:"(Todos)"}].concat(tiposRecurso || []), "(Todos)");
+}
+
+function fillSelect(id, items, placeholder){
+  var sel = document.getElementById(id);
+  sel.innerHTML = "";
+  var opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = placeholder || "-- seleccione --";
+  sel.appendChild(opt0);
+
+  (items || []).forEach(function(x){
+    if(!x || x.id === undefined) return;
+    var opt = document.createElement("option");
+    opt.value = String(x.id);
+    opt.textContent = x.nombre || x.username || ("ID " + x.id);
+    sel.appendChild(opt);
+  });
+}
+
+// ================= CREAR =================
+async function crearIncidente(){
+  var tipo = document.getElementById("tipo").value;
+  var sev  = document.getElementById("severidad").value;
+
+  // estado por defecto = primer estado
+  var est = document.getElementById("estado").value;
+  if(!est && estadosIncidente && estadosIncidente.length){
+    est = String(estadosIncidente[0].id);
+  }
+
+  var lat = document.getElementById("lat").value;
+  var lng = document.getElementById("lng").value;
+  var desc = document.getElementById("desc").value;
+  var evidencia = document.getElementById("evidencia").files[0];
+
+  if(!tipo || !sev || !desc){
+    alert("Completa Tipo, Severidad y Descripción.");
+    return;
+  }
+
+  var fd = new FormData();
+  fd.append("tipo", tipo);
+  fd.append("severidad", sev);
+  fd.append("estado", est);
+  fd.append("descripcion", desc);
+  fd.append("latitud", lat || "0");
+  fd.append("longitud", lng || "0");
+  if(evidencia) fd.append("evidencia", evidencia);
+
+  var r = await authFetch("/api/incidentes/", { method:"POST", body: fd });
+  if(!r.ok){
+    var t = await r.text();
+    alert("Error al crear incidente: " + t);
+    return;
+  }
+
+  // limpiar
+  document.getElementById("desc").value = "";
+  document.getElementById("evidencia").value = "";
+
+  await cargarIncidentes();
+}
+
+// ================= LISTAR =================
+async function cargarIncidentes(){
+  var data = await fetchJson("/api/incidentes/");
+  var tabla = document.getElementById("tabla");
+  tabla.innerHTML = "";
+
+  (data || []).forEach(function(x){
+    var evidUrl = getFileUrl(x);
+    var evidHtml = evidUrl
+      ? '<a href="' + safeText(evidUrl) + '" target="_blank" rel="noopener">Ver</a>'
+      : '<span class="text-muted">-</span>';
+
+    var lat = (x && x.latitud !== undefined) ? String(x.latitud) : "0";
+    var lng = (x && x.longitud !== undefined) ? String(x.longitud) : "0";
+
+    var recursosTxt = "-";
+    if(x && x.recursos_asignados !== undefined && x.recursos_asignados !== null){
+      recursosTxt = String(x.recursos_asignados);
+    }
+
+    var rescatistaTxt = (x && x.rescatista_username) ? x.rescatista_username : "-";
+
+    var color = "secondary";
+
+    if(x.estado_nombre){
+      if(x.estado_nombre.toLowerCase() === "cerrado"){
+        color = "success";
+      }
+    }
+
+    var btnAvanzar = "";
+
+    if(x.estado_nombre && x.estado_nombre.toLowerCase() !== "cerrado"){
+      btnAvanzar =
+        '<button type="button" class="btn btn-sm btn-outline-success" ' +
+        'data-action="avanzar" data-id="' + safeText(x.id) + '" ' +
+        'title="Avanzar estado">➡️</button>';
+    }
+
+    var row = document.createElement("tr");
+    row.innerHTML =
+      '<td>' + safeText(x.id) + '</td>' +
+      '<td>' + safeText(x.tipo_nombre) + '</td>' +
+      '<td>' + safeText(x.severidad_nombre) + '</td>' +
+      '<td><span class="badge bg-' + color + '">' + safeText(x.estado_nombre) + '</span></td>'+
+      '<td title="' + safeText(x.descripcion) + '">' + safeText(trunc(x.descripcion, 70)) + '</td>' +
+      '<td>' +
+        '<div class="d-flex flex-column">' +
+          '<small class="text-muted">' + safeText(lat + ", " + lng) + '</small>' +
+          '<div class="mt-1">' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="mapa" data-id="' + safeText(x.id) + '" data-lat="' + safeText(lat) + '" data-lng="' + safeText(lng) + '">🗺️</button>' +
+          '</div>' +
+        '</div>' +
+      '</td>' +
+      '<td>' + evidHtml + '</td>' +
+      '<td>' + safeText(rescatistaTxt) + '</td>' +
+      '<td>' + safeText(recursosTxt) + '</td>' +
+      '<td>' +
+        '<div class="d-flex gap-1">' +
+          '<button type="button" class="btn btn-sm btn-outline-primary" data-action="asignar" data-id="' + safeText(x.id) + '" title="Asignar recursos">🧰</button>' +
+
+
+
+            btnAvanzar +
+
+
+          '<button type="button" class="btn btn-sm btn-outline-danger" data-action="eliminar" data-id="' + safeText(x.id) + '" title="Eliminar">🗑️</button>' +
+
+          '<button class="btn btn-sm btn-outline-dark"  data-action="historial" data-id="' + safeText(x.id) + '"title="Ver historial">📜</button>'+
+        '</div>' +
+      '</td>';
+
+    tabla.appendChild(row);
+  });
+}
+
+// ================= MAPA VER =================
+function abrirMapaVer(lat, lng){
+  var nlat = Number(lat);
+  var nlng = Number(lng);
+  if(isNaN(nlat) || isNaN(nlng)){
+    alert("Lat/Lng inválidos");
+    return;
+  }
+
+  var link = 'https://www.google.com/maps?q=' + encodeURIComponent(nlat + ',' + nlng);
+  document.getElementById("btnAbrirEnGoogle").href = link;
+  document.getElementById("txtLatLng").textContent = "Lat/Lng: " + nlat + ", " + nlng;
+
+  // fallback si no hay API
+  if(!(window.google && window.google.maps)){
+    window.open(link, "_blank");
+    return;
+  }
+
+  modalVer.show();
+
+  setTimeout(function(){
+    var pos = { lat: nlat, lng: nlng };
+    if(!gMapVer){
+      gMapVer = new google.maps.Map(document.getElementById("mapVer"), {
+        zoom: 15,
+        center: pos,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      });
+      gMarkerVer = new google.maps.Marker({ position: pos, map: gMapVer });
+    }else{
+      gMapVer.setCenter(pos);
+      gMarkerVer.setPosition(pos);
+    }
+  }, 250);
+}
+
+// ================= MAPA =================
+function abrirMapaPick(){
+  // si no hay API, igual puedes usar Google Maps externo
+  if(!(window.google && window.google.maps)){
+    alert("Google Maps API no está cargada. Se abrirá Google Maps en una pestaña.");
+    window.open("https://www.google.com/maps", "_blank");
+    return;
+  }
+
+  modalPick.show();
+
+  setTimeout(function(){
+    // centro por defecto (Quito aprox). Si ya hay lat/lng, usar eso.
+    var lat = parseFloat(document.getElementById("lat").value);
+    var lng = parseFloat(document.getElementById("lng").value);
+
+    if(isNaN(lat)) lat = -0.180653;
+    if(isNaN(lng)) lng = -78.467834;
+
+    var center = { lat: lat, lng: lng };
+
+    if(!gMapPick){
+      gMapPick = new google.maps.Map(document.getElementById("mapPick"), {
+        zoom: 10,
+        center: center,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      });
+
+      gMarkerPick = new google.maps.Marker({ position: center, map: gMapPick });
+
+      gMapPick.addListener("click", function(ev){
+        var p = ev.latLng;
+        document.getElementById("lat").value = p.lat().toFixed(6);
+        document.getElementById("lng").value = p.lng().toFixed(6);
+        gMarkerPick.setPosition(p);
+      });
+
+    }else{
+      gMapPick.setCenter(center);
+      gMarkerPick.setPosition(center);
+    }
+  }, 250);
+}
+
+// ================= ELIMINAR =================
+async function eliminarIncidente(id){
+  if(!confirm("¿Eliminar incidente #" + id + "?")) return;
+  var r = await authFetch("/api/incidentes/" + id + "/", { method:"DELETE" });
+  if(!r.ok){
+    var t = await r.text();
+    alert("No se pudo eliminar: " + t);
+    return;
+  }
+  await cargarIncidentes();
+}
+
+// ================= AVANZAR ESTADO =================
+async function avanzarEstado(id){
+  // buscar estado actual del incidente para calcular siguiente
+  var inc = null;
+  try {
+    inc = await fetchJson("/api/incidentes/" + id + "/");
+  } catch(err){
+    alert("No se pudo leer el incidente para avanzar estado");
+    return;
+  }
+
+  var actual = inc ? inc.estado : null;
+  if(actual === null || actual === undefined){
+    alert("El incidente no tiene estado");
+    return;
+  }
+
+  if(!estadosIncidente || !estadosIncidente.length){
+    alert("No hay catálogo de estados cargado");
+    return;
+  }
+
+  // ordenar por id y avanzar
+  var sorted = estadosIncidente.slice().sort(function(a,b){ return a.id - b.id; });
+  var idx = -1;
+  for(var i=0;i<sorted.length;i++){
+    if(Number(sorted[i].id) === Number(actual)){ idx = i; break; }
+  }
+
+  if(idx === -1){
+    alert("Estado actual no encontrado en catálogo");
+    return;
+  }
+
+  if(idx >= sorted.length - 1){
+    alert("Este incidente ya está en el último estado.");
+    return;
+  }
+
+  var siguiente = sorted[idx + 1].id;
+
+  var r = await authFetch("/api/incidentes/" + id + "/estado/", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ estado: siguiente })
+  });
+
+  if(!r.ok){
+    var t = await r.text();
+    alert("No se pudo avanzar estado: " + t);
+    return;
+  }
+
+  await cargarIncidentes();
+}
+
+// ================= ASIGNACIÓN MODAL =================
+async function abrirAsignacion(id){
+  incidenteActualId = id;
+
+  // cargar rescatistas y recursos
+  await cargarRescatistas(id);
+
+  await cargarRecursosParaIncidente(id);
+
+  modalAsign.show();
+}
+
+async function cargarRescatistas(incidenteId){
+
+  var ddl = document.getElementById("ddlRescatista");
+  ddl.innerHTML = "";
+
+  var url = "/api/incidentes/" + incidenteId + "/asignaciones/";
+
+  try{
+
+    var data = await fetchJson(url);
+
+    // placeholder
+    var opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = "-- Seleccione rescatista --";
+    ddl.appendChild(opt0);
+
+    if(!data.rescatistas || !data.rescatistas.length){
+      var opt = document.createElement("option");
+      opt.textContent = "(No hay rescatistas)";
+      ddl.appendChild(opt);
+      return;
+    }
+
+    // poblar
+    data.rescatistas.forEach(function(u){
+      var opt = document.createElement("option");
+      opt.value = String(u.id);
+      opt.textContent = u.username;
+      ddl.appendChild(opt);
+    });
+
+    if(data.rescatista_actual){
+      ddl.value = String(data.rescatista_actual);
+    }
+
+  }catch(err){
+
+    console.error("Error cargando rescatistas:", err);
+
+    var opt = document.createElement("option");
+    opt.textContent = "(Error al cargar)";
+    ddl.appendChild(opt);
+  }
+}
+
+
+
+async function cargarRecursosParaIncidente(id){
+  recursosDisponibles = [];
+  recursosAsignados = [];
+
+  try {
+    var pack = await fetchJson("/api/incidentes/" + id + "/asignaciones/");
+
+    if(pack && pack.disponibles){
+      recursosDisponibles = pack.disponibles;
+    }
+
+    if(pack && pack.asignados){
+      recursosAsignados = pack.asignados;
+    }
+
+    // set rescatista actual si existe
+    if(pack && pack.rescatista_actual){
+      document.getElementById("ddlRescatista").value =
+        String(pack.rescatista_actual);
+    }
+
+  } catch(err){
+
+    // fallback: solo disponibles
+    try {
+      recursosDisponibles =
+        await fetchJson("/api/recursos/disponibles/");
+    } catch(err2){
+      recursosDisponibles = [];
+    }
+
+    recursosAsignados = [];
+  }
+
+  window._asignadosOriginales = recursosAsignados.map(function(r){
+    return { id: r.id };
+  });
+
+  renderListasRecursos();
+}
+
+
+function renderListasRecursos(){
+  // filtrar disponibles por tipo seleccionado
+  var filtro = document.getElementById("filtroTipoRecurso").value;
+
+  var disp = recursosDisponibles.slice();
+  if(filtro){
+    disp = disp.filter(function(r){ return String(r.tipo) === String(filtro); });
+  }
+
+  var lstD = document.getElementById("lstDisponibles");
+  var lstA = document.getElementById("lstAsignados");
+
+  lstD.innerHTML = "";
+  lstA.innerHTML = "";
+
+  disp.forEach(function(r){
+    var o = document.createElement("option");
+    o.value = String(r.id);
+    o.textContent = (r.nombre || ("Recurso " + r.id)) + " — " + (r.tipo_nombre || "");
+    lstD.appendChild(o);
+  });
+
+  recursosAsignados.forEach(function(r){
+    var o = document.createElement("option");
+    o.value = String(r.id);
+    o.textContent = (r.nombre || ("Recurso " + r.id)) + " — " + (r.tipo_nombre || "");
+    lstA.appendChild(o);
+  });
+
+  document.getElementById("badgeDisponibles").textContent = String(disp.length);
+  document.getElementById("badgeAsignados").textContent = String(recursosAsignados.length);
+}
+
+function moverSeleccionados(origen){
+  if(origen === "disponibles"){
+    var sel = document.getElementById("lstDisponibles");
+    var ids = getSelectedValues(sel);
+    if(!ids.length) return;
+
+    // mover de disponibles -> asignados
+    ids.forEach(function(id){
+      var idx = indexById(recursosDisponibles, id);
+      if(idx >= 0){
+        var obj = recursosDisponibles.splice(idx, 1)[0];
+        recursosAsignados.push(obj);
+      }
+    });
+
+    sel.selectedIndex = -1;
+    renderListasRecursos();
+  }
+
+  if(origen === "asignados"){
+    var selA = document.getElementById("lstAsignados");
+    var idsA = getSelectedValues(selA);
+    if(!idsA.length) return;
+
+    // mover de asignados -> disponibles
+    idsA.forEach(function(id){
+      var idx = indexById(recursosAsignados, id);
+      if(idx >= 0){
+        var obj = recursosAsignados.splice(idx, 1)[0];
+        recursosDisponibles.push(obj);
+      }
+    });
+
+    selA.selectedIndex = -1;
+    renderListasRecursos();
+  }
+}
+
+function getSelectedValues(selectEl){
+  var out = [];
+  for(var i=0;i<selectEl.options.length;i++){
+    var opt = selectEl.options[i];
+    if(opt.selected) out.push(opt.value);
+  }
+  return out;
+}
+
+function indexById(arr, id){
+  id = String(id);
+  for(var i=0;i<arr.length;i++){
+    if(String(arr[i].id) === id) return i;
+  }
+  return -1;
+}
+
+async function guardarAsignacion(){
+  if(!incidenteActualId){
+    alert("No hay incidente seleccionado");
+    return;
+  }
+
+  var rescatista = document.getElementById("ddlRescatista").value;
+// ids actuales en UI
+var actuales = recursosAsignados.map(function(r){ 
+  return String(r.id); 
+});
+
+// ids originales (cuando se abrió modal)
+var originales = (window._asignadosOriginales || []).map(function(r){
+  return String(r.id);
+});
+
+// calcular diferencias
+var asignar = actuales.filter(function(id){
+  return originales.indexOf(id) === -1;
+});
+
+var desasignar = originales.filter(function(id){
+  return actuales.indexOf(id) === -1;
+});
+
+var r = await authFetch(
+  "/api/incidentes/" + incidenteActualId + "/asignar/",
+{
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    rescatista: rescatista || null,
+    asignar: asignar,
+    desasignar: desasignar
+  })
+});
+
+
+  if(!r.ok){
+    var t = await r.text();
+    alert("No se pudo guardar asignación: " + t);
+    return;
+  }
+
+
+  modalAsign.hide();
+  await cargarIncidentes();
+
+
+}
 </script>
+
+<!--
+  Google Maps:
+  - Si ya tienes el script en base.html, NO lo dupliques.
+  - Si NO lo tienes, agrega esto en base.html o aquí con tu API KEY:
+-->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA7lFQ6zmecboYhiJaNi43FELV1wO3jSkY"></script>
 
 {% endblock %}

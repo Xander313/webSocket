@@ -21,19 +21,39 @@ class EstadoIncidenteSerializer(serializers.ModelSerializer):
 
 
 class IncidenteSerializer(serializers.ModelSerializer):
-    
+
     creado_por = serializers.ReadOnlyField(source="creado_por.username")
     tipo_nombre = serializers.CharField(source="tipo.nombre", read_only=True)
     severidad_nombre = serializers.CharField(source="severidad.nombre", read_only=True)
     estado_nombre = serializers.CharField(source="estado.nombre", read_only=True)
 
+    rescatista_username = serializers.CharField(source="rescatista.username", read_only=True)
+
+    evidencia_url = serializers.SerializerMethodField()
+
+    recursos_asignados = serializers.SerializerMethodField()
+
     class Meta:
         model = Incidente
         fields = "__all__"
+
     def create(self, validated_data):
         validated_data["activo"] = True
         return super().create(validated_data)
-    
+
+    def get_evidencia_url(self, obj):
+        if not obj.evidencia:
+            return None
+        try:
+            url = obj.evidencia.url
+        except Exception:
+            return None
+        request = self.context.get("request")
+        return request.build_absolute_uri(url) if request else url
+
+    def get_recursos_asignados(self, obj):
+        return Asignacion.objects.filter(incidente=obj, activo=True).count()
+
     def validate_evidencia(self, file):
 
         if not file:

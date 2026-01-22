@@ -35,6 +35,13 @@ class IncidenteConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
+        # grupo auditoria realtime
+        await self.channel_layer.group_add(
+            "auditoria",
+            self.channel_name
+        )
+
+
         await self.accept()
 
 
@@ -50,6 +57,11 @@ class IncidenteConsumer(AsyncWebsocketConsumer):
             "catalogos",
             self.channel_name
         )
+        await self.channel_layer.group_discard(
+            "auditoria",
+            self.channel_name
+        )
+
 
 
 
