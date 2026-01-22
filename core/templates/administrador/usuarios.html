@@ -1,75 +1,120 @@
 {% extends 'base.html' %}
-{% load static %}
 {% block content %}
 
-<h2>Gestión de Usuarios</h2>
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card card-custom">
+            <div class="card-header card-header-custom">
+                <h5 class="mb-0"><i class="fas fa-users me-2"></i>Gestión de Usuarios</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-custom mb-4" onclick="mostrarFormulario()">
+                    <i class="fas fa-plus-circle me-2"></i>Nuevo Usuario
+                </button>
 
-<button onclick="mostrarFormulario()">➕ Nuevo usuario</button>
+                <!-- Formulario -->
+                <div id="formUsuario" style="display:none" class="card mb-4 border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">Crear Nuevo Usuario</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label>Usuario</label>
+                                <input id="username" class="form-control" placeholder="Nombre de usuario">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label>Email</label>
+                                <input id="email" class="form-control" placeholder="correo@ejemplo.com">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label>Contraseña</label>
+                                <input id="password" class="form-control" type="password" placeholder="Contraseña">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label>Rol</label>
+                                <select id="rol" class="form-select">
+                                    <option value="admin">Administrador</option>
+                                    <option value="operador">Operador</option>
+                                    <option value="rescatista">Rescatista</option>
+                                    <option value="auditor">Auditor</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success" onclick="crearUsuario()">
+                                <i class="fas fa-save me-2"></i>Guardar
+                            </button>
+                            <button class="btn btn-secondary" onclick="ocultarFormulario()">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-<table border="1" width="100%" id="tablaUsuarios">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Usuario</th>
-            <th>Email</th>
-            <th>Rol</th>
-            <th>Activo</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-<hr>
-
-<div id="formUsuario" style="display:none">
-    <h3>Crear usuario</h3>
-
-    <input id="username" placeholder="Usuario">
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Contraseña">
-
-    <select id="rol">
-        <option value="admin">Admin</option>
-        <option value="operador">Operador</option>
-        <option value="rescatista">Rescatista</option>
-        <option value="auditor">Auditor</option>
-    </select>
-
-    <button onclick="crearUsuario()">Guardar</button>
+                <!-- Tabla SIMPLE (igual que tu versión original) -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="tablaUsuarios">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuario</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyUsuarios"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-async function cargarUsuarios(){
-
-    const res = await authFetch("/api/usuarios/");
-    const data = await res.json();
-
-    const tbody = document.querySelector("#tablaUsuarios tbody");
-    tbody.innerHTML = "";
-
-    data.forEach(u=>{
-    tbody.innerHTML += `
-    <tr>
-        <td>${u.id}</td>
-        <td>${u.username}</td>
-        <td>${u.email}</td>
-        <td>${u.rol}</td>
-        <td>${u.activo ? "SI" : "NO"}</td>
-        <td>
-            ${
-                u.activo
-                ? `<button onclick="desactivar(${u.id})">❌</button>`
-                : `<button onclick="activar(${u.id})">✅</button>`
-            }
-        </td>
-    </tr>
-    `;
-})
-
+// Cargar usuarios (VERSIÓN ORIGINAL SIMPLE)
+async function cargarUsuarios() {
+    try {
+        const res = await authFetch("/api/usuarios/");
+        const data = await res.json();
+        
+        const tbody = document.getElementById("tbodyUsuarios");
+        tbody.innerHTML = "";
+        
+        data.forEach(u => {
+            tbody.innerHTML += `
+            <tr>
+                <td>${u.id}</td>
+                <td>${u.username}</td>
+                <td>${u.email}</td>
+                <td><span class="badge bg-primary">${u.rol}</span></td>
+                <td>${u.activo ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-danger">Inactivo</span>'}</td>
+                <td>
+                    ${u.activo
+                        ? `<button class="btn btn-sm btn-danger" onclick="desactivar(${u.id})">
+                              <i class="fas fa-ban"></i> Desactivar
+                           </button>`
+                        : `<button class="btn btn-sm btn-success" onclick="activar(${u.id})">
+                              <i class="fas fa-check"></i> Activar
+                           </button>`}
+                </td>
+            </tr>`;
+        });
+        
+    } catch (error) {
+        console.error("Error:", error);
+        toastr.error("Error al cargar usuarios");
+    }
 }
 
-async function crearUsuario(){
+// Crear usuario (VERSIÓN ORIGINAL)
+async function crearUsuario() {
+    if (!username.value.trim() || !email.value.trim() || !password.value.trim()) {
+        toastr.error("Complete todos los campos");
+        return;
+    }
 
     const body = {
         username: username.value,
@@ -78,49 +123,93 @@ async function crearUsuario(){
         rol: rol.value
     };
 
-    await authFetch("/api/usuarios/",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(body)
-    });
-
-    alert("Usuario creado");
-    cargarUsuarios();
+    try {
+        const response = await authFetch("/api/usuarios/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        
+        if (response.ok) {
+            toastr.success("Usuario creado correctamente");
+            
+            // Limpiar formulario
+            username.value = "";
+            email.value = "";
+            password.value = "";
+            rol.value = "admin";
+            
+            // Ocultar formulario
+            ocultarFormulario();
+            
+            // Recargar tabla
+            cargarUsuarios();
+        } else {
+            const errorData = await response.json();
+            toastr.error(errorData.detail || "Error al crear usuario");
+        }
+    } catch (error) {
+        toastr.error("Error de conexión");
+    }
 }
 
-async function desactivar(id){
+// Desactivar usuario
+async function desactivar(id) {
+    if (!confirm("¿Está seguro de desactivar este usuario?")) return;
 
-    await authFetch(`/api/usuarios/${id}/`,{
-        method:"DELETE"
-    });
-
-    cargarUsuarios();
+    try {
+        const response = await authFetch(`/api/usuarios/${id}/`, {
+            method: "DELETE"
+        });
+        
+        if (response.ok) {
+            toastr.success("Usuario desactivado");
+            cargarUsuarios();
+        } else {
+            const errorData = await response.json();
+            toastr.error(errorData.detail || "Error al desactivar");
+        }
+    } catch (error) {
+        toastr.error("Error de conexión");
+    }
 }
 
+// Activar usuario
+async function activar(id) {
+    if (!confirm("¿Está seguro de activar este usuario?")) return;
 
-async function activar(id){
-
-    await authFetch(`/api/usuarios/${id}/`,{
-        method:"PUT",
-        body: JSON.stringify({activo:true})
-    });
-
-    cargarUsuarios();
+    try {
+        const response = await authFetch(`/api/usuarios/${id}/`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ activo: true })
+        });
+        
+        if (response.ok) {
+            toastr.success("Usuario activado");
+            cargarUsuarios();
+        } else {
+            const errorData = await response.json();
+            toastr.error(errorData.detail || "Error al activar");
+        }
+    } catch (error) {
+        toastr.error("Error de conexión");
+    }
 }
 
-
-function mostrarFormulario(){
-    formUsuario.style.display="block";
+// Funciones auxiliares
+function mostrarFormulario() {
+    document.getElementById('formUsuario').style.display = 'block';
 }
 
-cargarUsuarios();
-</script>
+function ocultarFormulario() {
+    document.getElementById('formUsuario').style.display = 'none';
+}
 
-<script>
+// Inicializar
 document.addEventListener("DOMContentLoaded", () => {
     cargarUsuarios();
 });
 </script>
-
 
 {% endblock %}
