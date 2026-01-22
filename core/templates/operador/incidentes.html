@@ -247,9 +247,7 @@
 </div>
 
 
-<button id="btnHistoricos" class="btn btn-dark shadow-lg">
-📘
-</button>
+
 
 <style>
 #btnHistoricos{
@@ -547,19 +545,25 @@ function trunc(s, n){
 }
 
 function getFileUrl(x){
-  // x.evidencia puede venir como URL absoluta o como ruta relativa
   if(!x) return "";
   var e = x.evidencia;
   if(!e) return "";
   if(String(e).indexOf("http") === 0) return e;
-  // si viene tipo /media/.. o media/..
   if(String(e).indexOf("/") === 0) return window.location.origin + e;
   return window.location.origin + "/" + e;
 }
 
 async function fetchJson(url, opts){
   var r = await authFetch(url, opts || {});
-  if(!r.ok) throw new Error("HTTP " + r.status);
+  if(!r.ok) {
+    var errorText = await r.text();
+    try {
+      var errorJson = JSON.parse(errorText);
+      throw new Error(errorJson.detail || errorJson.error || `HTTP ${r.status}`);
+    } catch {
+      throw new Error(`HTTP ${r.status}: ${errorText}`);
+    }
+  }
   return await r.json();
 }
 
@@ -567,12 +571,8 @@ async function fetchJson(url, opts){
 var estadosIncidente = [];
 var tiposRecurso = [];
 var incidenteActualId = null;
-
-// asignación modal state
-var recursosDisponibles = [];   // objetos {id, nombre, tipo, tipo_nombre}
-var recursosAsignados = [];     // objetos
-
-// mapas
+var recursosDisponibles = [];
+var recursosAsignados = [];
 var modalVer = null;
 var modalPick = null;
 var modalAsign = null;
@@ -580,6 +580,14 @@ var gMapVer = null;
 var gMarkerVer = null;
 var gMapPick = null;
 var gMarkerPick = null;
+
+// Configuración de toastr
+toastr.options = {
+    "closeButton": true,
+    "progressBar": true,
+    "positionClass": "toast-top-right",
+    "timeOut": "3000"
+};
 
 // ================= INIT =================
 document.addEventListener("DOMContentLoaded", function(){
@@ -593,7 +601,6 @@ document.addEventListener("DOMContentLoaded", function(){
 
   document.getElementById("filtroTipoRecurso").addEventListener("change", renderListasRecursos);
 
-  // mover con un solo clic
   document.getElementById("lstDisponibles").addEventListener("change", function(){
     moverSeleccionados("disponibles");
   });
@@ -601,10 +608,8 @@ document.addEventListener("DOMContentLoaded", function(){
     moverSeleccionados("asignados");
   });
 
-  // Delegación de eventos en la tabla (evita onclick dentro del HTML string)
   document.getElementById("tabla").addEventListener("click", function(e){
     var el = e.target;
-    // sube hasta botón
     while(el && el !== this && !(el.dataset && el.dataset.action)){
       el = el.parentElement;
     }
@@ -621,7 +626,6 @@ document.addEventListener("DOMContentLoaded", function(){
 
   });
 
-  // cargar todo
   (async function(){
     await cargarCatalogos();
     await cargarIncidentes();
@@ -630,31 +634,34 @@ document.addEventListener("DOMContentLoaded", function(){
 
 // ================= CATÁLOGOS =================
 async function cargarCatalogos(){
-  // tipos incidente, severidad, estados
-  var tipos = await fetchJson("/api/catalogos/tipo-incidente/");
-  var sevs  = await fetchJson("/api/catalogos/severidad/");
-  estadosIncidente = await fetchJson("/api/catalogos/estado-incidente/");
-
-  // tipos recurso para filtro
   try {
-    tiposRecurso = await fetchJson("/api/catalogos/tipo-recurso/");
-  } catch(err){
-    tiposRecurso = [];
+    var tipos = await fetchJson("/api/catalogos/tipo-incidente/");
+    var sevs  = await fetchJson("/api/catalogos/severidad/");
+    estadosIncidente = await fetchJson("/api/catalogos/estado-incidente/");
+
+    try {
+      tiposRecurso = await fetchJson("/api/catalogos/tipo-recurso/");
+    } catch(err){
+      tiposRecurso = [];
+    }
+
+    fillSelect("tipo", tipos, "-- tipo --");
+    fillSelect("severidad", sevs, "-- severidad --");
+    fillSelect("estado", estadosIncidente, "-- estado --");
+
+    if(estadosIncidente && estadosIncidente.length){
+      estadosIncidente.sort(function(a,b){ return a.id - b.id; });
+      document.getElementById("estado").value = String(estadosIncidente[0].id);
+    }
+
+    fillSelect("filtroTipoRecurso", [{id:"", nombre:"(Todos)"}].concat(tiposRecurso || []), "(Todos)");
+    
+    console.log('Catálogos cargados');
+    
+  } catch (error) {
+    console.error('Error cargando catálogos:', error);
+    toastr.error('Error al cargar catálogos');
   }
-
-  // poblar selects
-  fillSelect("tipo", tipos, "-- tipo --");
-  fillSelect("severidad", sevs, "-- severidad --");
-  fillSelect("estado", estadosIncidente, "-- estado --");
-
-  // estado inicial: primero por ID
-  if(estadosIncidente && estadosIncidente.length){
-    estadosIncidente.sort(function(a,b){ return a.id - b.id; });
-    document.getElementById("estado").value = String(estadosIncidente[0].id);
-  }
-
-  // filtro tipo recurso
-  fillSelect("filtroTipoRecurso", [{id:"", nombre:"(Todos)"}].concat(tiposRecurso || []), "(Todos)");
 }
 
 function fillSelect(id, items, placeholder){
@@ -674,299 +681,232 @@ function fillSelect(id, items, placeholder){
   });
 }
 
-// ================= CREAR =================
+// ================= CREAR INCIDENTE =================
 async function crearIncidente(){
   var tipo = document.getElementById("tipo").value;
   var sev  = document.getElementById("severidad").value;
-
-  // estado por defecto = primer estado
   var est = document.getElementById("estado").value;
-  if(!est && estadosIncidente && estadosIncidente.length){
-    est = String(estadosIncidente[0].id);
-  }
-
   var lat = document.getElementById("lat").value;
   var lng = document.getElementById("lng").value;
   var desc = document.getElementById("desc").value;
   var evidencia = document.getElementById("evidencia").files[0];
 
   if(!tipo || !sev || !desc){
-    alert("Completa Tipo, Severidad y Descripción.");
+    toastr.warning('Complete Tipo, Severidad y Descripción');
     return;
   }
 
-  var fd = new FormData();
-  fd.append("tipo", tipo);
-  fd.append("severidad", sev);
-  fd.append("estado", est);
-  fd.append("descripcion", desc);
-  fd.append("latitud", lat || "0");
-  fd.append("longitud", lng || "0");
-  if(evidencia) fd.append("evidencia", evidencia);
-
-  var r = await authFetch("/api/incidentes/", { method:"POST", body: fd });
-  if(!r.ok){
-    var t = await r.text();
-    alert("Error al crear incidente: " + t);
-    return;
+  if(!est && estadosIncidente && estadosIncidente.length){
+    est = String(estadosIncidente[0].id);
   }
 
-  // limpiar
-  document.getElementById("desc").value = "";
-  document.getElementById("evidencia").value = "";
+  try {
+    var fd = new FormData();
+    fd.append("tipo", tipo);
+    fd.append("severidad", sev);
+    fd.append("estado", est);
+    fd.append("descripcion", desc);
+    fd.append("latitud", lat || "0");
+    fd.append("longitud", lng || "0");
+    if(evidencia) fd.append("evidencia", evidencia);
 
-  await cargarIncidentes();
-}
-
-// ================= LISTAR =================
-async function cargarIncidentes(){
-  var data = await fetchJson("/api/incidentes/");
-  var tabla = document.getElementById("tabla");
-  tabla.innerHTML = "";
-
-  (data || []).forEach(function(x){
-    var evidUrl = getFileUrl(x);
-    var evidHtml = evidUrl
-      ? '<a href="' + safeText(evidUrl) + '" target="_blank" rel="noopener">Ver</a>'
-      : '<span class="text-muted">-</span>';
-
-    var lat = (x && x.latitud !== undefined) ? String(x.latitud) : "0";
-    var lng = (x && x.longitud !== undefined) ? String(x.longitud) : "0";
-
-    var recursosTxt = "-";
-    if(x && x.recursos_asignados !== undefined && x.recursos_asignados !== null){
-      recursosTxt = String(x.recursos_asignados);
+    var r = await authFetch("/api/incidentes/", { method:"POST", body: fd });
+    
+    if(!r.ok){
+      var errorText = await r.text();
+      throw new Error(errorText);
     }
 
-    var rescatistaTxt = (x && x.rescatista_username) ? x.rescatista_username : "-";
+    // limpiar formulario
+    document.getElementById("desc").value = "";
+    document.getElementById("evidencia").value = "";
+    document.getElementById("lat").value = "";
+    document.getElementById("lng").value = "";
 
-    var color = "secondary";
+    toastr.success('Incidente creado');
+    await cargarIncidentes();
+    
+  } catch (error) {
+    console.error('Error creando incidente:', error);
+    toastr.error('Error al crear incidente');
+  }
+}
 
-    if(x.estado_nombre){
-      if(x.estado_nombre.toLowerCase() === "cerrado"){
+// ================= LISTAR INCIDENTES =================
+async function cargarIncidentes(){
+  try {
+    var data = await fetchJson("/api/incidentes/");
+    var tabla = document.getElementById("tabla");
+    tabla.innerHTML = "";
+
+    (data || []).forEach(function(x){
+      var evidUrl = getFileUrl(x);
+      var evidHtml = evidUrl
+        ? '<a href="' + safeText(evidUrl) + '" target="_blank" rel="noopener">Ver</a>'
+        : '<span class="text-muted">-</span>';
+
+      var lat = (x && x.latitud !== undefined) ? String(x.latitud) : "0";
+      var lng = (x && x.longitud !== undefined) ? String(x.longitud) : "0";
+
+      var recursosTxt = "-";
+      if(x && x.recursos_asignados !== undefined && x.recursos_asignados !== null){
+        recursosTxt = String(x.recursos_asignados);
+      }
+
+      var rescatistaTxt = (x && x.rescatista_username) ? x.rescatista_username : "-";
+
+      var color = "secondary";
+      if(x.estado_nombre && x.estado_nombre.toLowerCase() === "cerrado"){
         color = "success";
       }
-    }
 
-    var btnAvanzar = "";
+      var btnAvanzar = "";
+      if(x.estado_nombre && x.estado_nombre.toLowerCase() !== "cerrado"){
+        btnAvanzar = '<button type="button" class="btn btn-sm btn-outline-success" data-action="avanzar" data-id="' + safeText(x.id) + '" title="Avanzar estado">➡️</button>';
+      }
 
-    if(x.estado_nombre && x.estado_nombre.toLowerCase() !== "cerrado"){
-      btnAvanzar =
-        '<button type="button" class="btn btn-sm btn-outline-success" ' +
-        'data-action="avanzar" data-id="' + safeText(x.id) + '" ' +
-        'title="Avanzar estado">➡️</button>';
-    }
-
-    var row = document.createElement("tr");
-    row.innerHTML =
-      '<td>' + safeText(x.id) + '</td>' +
-      '<td>' + safeText(x.tipo_nombre) + '</td>' +
-      '<td>' + safeText(x.severidad_nombre) + '</td>' +
-      '<td><span class="badge bg-' + color + '">' + safeText(x.estado_nombre) + '</span></td>'+
-      '<td title="' + safeText(x.descripcion) + '">' + safeText(trunc(x.descripcion, 70)) + '</td>' +
-      '<td>' +
-        '<div class="d-flex flex-column">' +
-          '<small class="text-muted">' + safeText(lat + ", " + lng) + '</small>' +
-          '<div class="mt-1">' +
-            '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="mapa" data-id="' + safeText(x.id) + '" data-lat="' + safeText(lat) + '" data-lng="' + safeText(lng) + '">🗺️</button>' +
+      var row = document.createElement("tr");
+      row.innerHTML =
+        '<td>' + safeText(x.id) + '</td>' +
+        '<td>' + safeText(x.tipo_nombre) + '</td>' +
+        '<td>' + safeText(x.severidad_nombre) + '</td>' +
+        '<td><span class="badge bg-' + color + '">' + safeText(x.estado_nombre) + '</span></td>'+
+        '<td title="' + safeText(x.descripcion) + '">' + safeText(trunc(x.descripcion, 70)) + '</td>' +
+        '<td>' +
+          '<div class="d-flex flex-column">' +
+            '<small class="text-muted">' + safeText(lat + ", " + lng) + '</small>' +
+            '<div class="mt-1">' +
+              '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="mapa" data-id="' + safeText(x.id) + '" data-lat="' + safeText(lat) + '" data-lng="' + safeText(lng) + '">🗺️</button>' +
+            '</div>' +
           '</div>' +
-        '</div>' +
-      '</td>' +
-      '<td>' + evidHtml + '</td>' +
-      '<td>' + safeText(rescatistaTxt) + '</td>' +
-      '<td>' + safeText(recursosTxt) + '</td>' +
-      '<td>' +
-        '<div class="d-flex gap-1">' +
-          '<button type="button" class="btn btn-sm btn-outline-primary" data-action="asignar" data-id="' + safeText(x.id) + '" title="Asignar recursos">🧰</button>' +
-
-
-
+        '</td>' +
+        '<td>' + evidHtml + '</td>' +
+        '<td>' + safeText(rescatistaTxt) + '</td>' +
+        '<td>' + safeText(recursosTxt) + '</td>' +
+        '<td>' +
+          '<div class="d-flex gap-1">' +
+            '<button type="button" class="btn btn-sm btn-outline-primary" data-action="asignar" data-id="' + safeText(x.id) + '" title="Asignar recursos">🧰</button>' +
             btnAvanzar +
+            '<button type="button" class="btn btn-sm btn-outline-danger" data-action="eliminar" data-id="' + safeText(x.id) + '" title="Eliminar">🗑️</button>' +
+            '<button class="btn btn-sm btn-outline-dark" data-action="historial" data-id="' + safeText(x.id) + '"title="Ver historial">📜</button>'+
+          '</div>' +
+        '</td>';
 
+      tabla.appendChild(row);
+    });
 
-          '<button type="button" class="btn btn-sm btn-outline-danger" data-action="eliminar" data-id="' + safeText(x.id) + '" title="Eliminar">🗑️</button>' +
-
-          '<button class="btn btn-sm btn-outline-dark"  data-action="historial" data-id="' + safeText(x.id) + '"title="Ver historial">📜</button>'+
-        '</div>' +
-      '</td>';
-
-    tabla.appendChild(row);
-  });
+    console.log(`${data.length} incidentes cargados`);
+    
+  } catch (error) {
+    console.error('Error cargando incidentes:', error);
+    toastr.error('Error al cargar incidentes');
+  }
 }
 
-// ================= MAPA VER =================
-function abrirMapaVer(lat, lng){
-  var nlat = Number(lat);
-  var nlng = Number(lng);
-  if(isNaN(nlat) || isNaN(nlng)){
-    alert("Lat/Lng inválidos");
-    return;
-  }
-
-  var link = 'https://www.google.com/maps?q=' + encodeURIComponent(nlat + ',' + nlng);
-  document.getElementById("btnAbrirEnGoogle").href = link;
-  document.getElementById("txtLatLng").textContent = "Lat/Lng: " + nlat + ", " + nlng;
-
-  // fallback si no hay API
-  if(!(window.google && window.google.maps)){
-    window.open(link, "_blank");
-    return;
-  }
-
-  modalVer.show();
-
-  setTimeout(function(){
-    var pos = { lat: nlat, lng: nlng };
-    if(!gMapVer){
-      gMapVer = new google.maps.Map(document.getElementById("mapVer"), {
-        zoom: 15,
-        center: pos,
-        mapTypeId: google.maps.MapTypeId.ROADMAP
-      });
-      gMarkerVer = new google.maps.Marker({ position: pos, map: gMapVer });
-    }else{
-      gMapVer.setCenter(pos);
-      gMarkerVer.setPosition(pos);
-    }
-  }, 250);
-}
-
-// ================= MAPA =================
-function abrirMapaPick(){
-  // si no hay API, igual puedes usar Google Maps externo
-  if(!(window.google && window.google.maps)){
-    alert("Google Maps API no está cargada. Se abrirá Google Maps en una pestaña.");
-    window.open("https://www.google.com/maps", "_blank");
-    return;
-  }
-
-  modalPick.show();
-
-  setTimeout(function(){
-    // centro por defecto (Quito aprox). Si ya hay lat/lng, usar eso.
-    var lat = parseFloat(document.getElementById("lat").value);
-    var lng = parseFloat(document.getElementById("lng").value);
-
-    if(isNaN(lat)) lat = -0.180653;
-    if(isNaN(lng)) lng = -78.467834;
-
-    var center = { lat: lat, lng: lng };
-
-    if(!gMapPick){
-      gMapPick = new google.maps.Map(document.getElementById("mapPick"), {
-        zoom: 10,
-        center: center,
-        mapTypeId: google.maps.MapTypeId.ROADMAP
-      });
-
-      gMarkerPick = new google.maps.Marker({ position: center, map: gMapPick });
-
-      gMapPick.addListener("click", function(ev){
-        var p = ev.latLng;
-        document.getElementById("lat").value = p.lat().toFixed(6);
-        document.getElementById("lng").value = p.lng().toFixed(6);
-        gMarkerPick.setPosition(p);
-      });
-
-    }else{
-      gMapPick.setCenter(center);
-      gMarkerPick.setPosition(center);
-    }
-  }, 250);
-}
-
-// ================= ELIMINAR =================
+// ================= ELIMINAR INCIDENTE =================
 async function eliminarIncidente(id){
-  if(!confirm("¿Eliminar incidente #" + id + "?")) return;
-  var r = await authFetch("/api/incidentes/" + id + "/", { method:"DELETE" });
-  if(!r.ok){
-    var t = await r.text();
-    alert("No se pudo eliminar: " + t);
-    return;
+  try {
+    var r = await authFetch("/api/incidentes/" + id + "/", { 
+      method: "DELETE" 
+    });
+    
+    if(r.status === 404) {
+      toastr.warning('El incidente ya no existe');
+      await cargarIncidentes();
+      return;
+    }
+    
+    if(!r.ok){
+      var errorText = await r.text();
+      throw new Error(errorText);
+    }
+    
+    toastr.success('Incidente eliminado');
+    await cargarIncidentes();
+    
+  } catch (error) {
+    console.error('Error eliminando incidente:', error);
+    toastr.error('Error al eliminar');
   }
-  await cargarIncidentes();
 }
 
 // ================= AVANZAR ESTADO =================
 async function avanzarEstado(id){
-  // buscar estado actual del incidente para calcular siguiente
-  var inc = null;
   try {
-    inc = await fetchJson("/api/incidentes/" + id + "/");
-  } catch(err){
-    alert("No se pudo leer el incidente para avanzar estado");
-    return;
+    var inc = await fetchJson("/api/incidentes/" + id + "/");
+    var actual = inc ? inc.estado : null;
+    
+    if(actual === null || actual === undefined){
+      toastr.warning('El incidente no tiene estado');
+      return;
+    }
+
+    if(!estadosIncidente || !estadosIncidente.length){
+      toastr.warning('No hay catálogo de estados cargado');
+      return;
+    }
+
+    var sorted = estadosIncidente.slice().sort(function(a,b){ return a.id - b.id; });
+    var idx = -1;
+    for(var i=0;i<sorted.length;i++){
+      if(Number(sorted[i].id) === Number(actual)){ idx = i; break; }
+    }
+
+    if(idx === -1){
+      toastr.warning('Estado actual no encontrado en catálogo');
+      return;
+    }
+
+    if(idx >= sorted.length - 1){
+      toastr.info('Este incidente ya está en el último estado');
+      return;
+    }
+
+    var siguiente = sorted[idx + 1].id;
+
+    var r = await authFetch("/api/incidentes/" + id + "/estado/", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado: siguiente })
+    });
+
+    if(!r.ok){
+      var errorText = await r.text();
+      throw new Error(errorText);
+    }
+
+    toastr.success('Estado avanzado');
+    await cargarIncidentes();
+    
+  } catch (error) {
+    console.error('Error avanzando estado:', error);
+    toastr.error('Error al avanzar estado');
   }
-
-  var actual = inc ? inc.estado : null;
-  if(actual === null || actual === undefined){
-    alert("El incidente no tiene estado");
-    return;
-  }
-
-  if(!estadosIncidente || !estadosIncidente.length){
-    alert("No hay catálogo de estados cargado");
-    return;
-  }
-
-  // ordenar por id y avanzar
-  var sorted = estadosIncidente.slice().sort(function(a,b){ return a.id - b.id; });
-  var idx = -1;
-  for(var i=0;i<sorted.length;i++){
-    if(Number(sorted[i].id) === Number(actual)){ idx = i; break; }
-  }
-
-  if(idx === -1){
-    alert("Estado actual no encontrado en catálogo");
-    return;
-  }
-
-  if(idx >= sorted.length - 1){
-    alert("Este incidente ya está en el último estado.");
-    return;
-  }
-
-  var siguiente = sorted[idx + 1].id;
-
-  var r = await authFetch("/api/incidentes/" + id + "/estado/", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ estado: siguiente })
-  });
-
-  if(!r.ok){
-    var t = await r.text();
-    alert("No se pudo avanzar estado: " + t);
-    return;
-  }
-
-  await cargarIncidentes();
 }
 
 // ================= ASIGNACIÓN MODAL =================
 async function abrirAsignacion(id){
-  incidenteActualId = id;
-
-  // cargar rescatistas y recursos
-  await cargarRescatistas(id);
-
-  await cargarRecursosParaIncidente(id);
-
-  modalAsign.show();
+  try {
+    incidenteActualId = id;
+    
+    await cargarRescatistas(id);
+    await cargarRecursosParaIncidente(id);
+    
+    modalAsign.show();
+    
+  } catch (error) {
+    console.error('Error abriendo asignación:', error);
+    toastr.error('Error al cargar asignación');
+  }
 }
 
 async function cargarRescatistas(incidenteId){
-
   var ddl = document.getElementById("ddlRescatista");
   ddl.innerHTML = "";
 
-  var url = "/api/incidentes/" + incidenteId + "/asignaciones/";
+  try {
+    var data = await fetchJson("/api/incidentes/" + incidenteId + "/asignaciones/");
 
-  try{
-
-    var data = await fetchJson(url);
-
-    // placeholder
     var opt0 = document.createElement("option");
     opt0.value = "";
     opt0.textContent = "-- Seleccione rescatista --";
@@ -974,12 +914,11 @@ async function cargarRescatistas(incidenteId){
 
     if(!data.rescatistas || !data.rescatistas.length){
       var opt = document.createElement("option");
-      opt.textContent = "(No hay rescatistas)";
+      opt.textContent = "(No hay rescatistas disponibles)";
       ddl.appendChild(opt);
       return;
     }
 
-    // poblar
     data.rescatistas.forEach(function(u){
       var opt = document.createElement("option");
       opt.value = String(u.id);
@@ -990,18 +929,14 @@ async function cargarRescatistas(incidenteId){
     if(data.rescatista_actual){
       ddl.value = String(data.rescatista_actual);
     }
-
-  }catch(err){
-
+    
+  } catch(err) {
     console.error("Error cargando rescatistas:", err);
-
     var opt = document.createElement("option");
     opt.textContent = "(Error al cargar)";
     ddl.appendChild(opt);
   }
 }
-
-
 
 async function cargarRecursosParaIncidente(id){
   recursosDisponibles = [];
@@ -1018,38 +953,31 @@ async function cargarRecursosParaIncidente(id){
       recursosAsignados = pack.asignados;
     }
 
-    // set rescatista actual si existe
     if(pack && pack.rescatista_actual){
-      document.getElementById("ddlRescatista").value =
-        String(pack.rescatista_actual);
+      document.getElementById("ddlRescatista").value = String(pack.rescatista_actual);
     }
 
-  } catch(err){
-
-    // fallback: solo disponibles
+    window._asignadosOriginales = recursosAsignados.map(function(r){ return { id: r.id }; });
+    
+    renderListasRecursos();
+    
+  } catch(err) {
+    console.error("Error cargando recursos:", err);
+    
     try {
-      recursosDisponibles =
-        await fetchJson("/api/recursos/disponibles/");
+      recursosDisponibles = await fetchJson("/api/recursos/disponibles/");
     } catch(err2){
       recursosDisponibles = [];
     }
-
     recursosAsignados = [];
+    renderListasRecursos();
   }
-
-  window._asignadosOriginales = recursosAsignados.map(function(r){
-    return { id: r.id };
-  });
-
-  renderListasRecursos();
 }
 
-
 function renderListasRecursos(){
-  // filtrar disponibles por tipo seleccionado
   var filtro = document.getElementById("filtroTipoRecurso").value;
-
   var disp = recursosDisponibles.slice();
+  
   if(filtro){
     disp = disp.filter(function(r){ return String(r.tipo) === String(filtro); });
   }
@@ -1084,7 +1012,6 @@ function moverSeleccionados(origen){
     var ids = getSelectedValues(sel);
     if(!ids.length) return;
 
-    // mover de disponibles -> asignados
     ids.forEach(function(id){
       var idx = indexById(recursosDisponibles, id);
       if(idx >= 0){
@@ -1102,7 +1029,6 @@ function moverSeleccionados(origen){
     var idsA = getSelectedValues(selA);
     if(!idsA.length) return;
 
-    // mover de asignados -> disponibles
     idsA.forEach(function(id){
       var idx = indexById(recursosAsignados, id);
       if(idx >= 0){
@@ -1133,59 +1059,132 @@ function indexById(arr, id){
   return -1;
 }
 
+// ================= GUARDAR ASIGNACIÓN =================
 async function guardarAsignacion(){
   if(!incidenteActualId){
-    alert("No hay incidente seleccionado");
+    toastr.warning('No hay incidente seleccionado');
     return;
   }
 
   var rescatista = document.getElementById("ddlRescatista").value;
-// ids actuales en UI
-var actuales = recursosAsignados.map(function(r){ 
-  return String(r.id); 
-});
+  var actuales = recursosAsignados.map(function(r){ return String(r.id); });
+  var originales = (window._asignadosOriginales || []).map(function(r){ return String(r.id); });
+  
+  var asignar = actuales.filter(function(id){ return originales.indexOf(id) === -1; });
+  var desasignar = originales.filter(function(id){ return actuales.indexOf(id) === -1; });
 
-// ids originales (cuando se abrió modal)
-var originales = (window._asignadosOriginales || []).map(function(r){
-  return String(r.id);
-});
-
-// calcular diferencias
-var asignar = actuales.filter(function(id){
-  return originales.indexOf(id) === -1;
-});
-
-var desasignar = originales.filter(function(id){
-  return actuales.indexOf(id) === -1;
-});
-
-var r = await authFetch(
-  "/api/incidentes/" + incidenteActualId + "/asignar/",
-{
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    rescatista: rescatista || null,
-    asignar: asignar,
-    desasignar: desasignar
-  })
-});
-
-
-  if(!r.ok){
-    var t = await r.text();
-    alert("No se pudo guardar asignación: " + t);
+  // Si no hay cambios
+  if(asignar.length === 0 && desasignar.length === 0 && !rescatista) {
+    toastr.info('No hay cambios para guardar');
+    modalAsign.hide();
     return;
   }
 
+  try {
+    var r = await authFetch("/api/incidentes/" + incidenteActualId + "/asignar/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rescatista: rescatista || null,
+        asignar: asignar,
+        desasignar: desasignar
+      })
+    });
 
-  modalAsign.hide();
-  await cargarIncidentes();
+    if(!r.ok){
+      var errorText = await r.text();
+      throw new Error(errorText);
+    }
 
+    toastr.success('Asignación guardada');
+    modalAsign.hide();
+    await cargarIncidentes();
+    
+  } catch (error) {
+    console.error('Error guardando asignación:', error);
+    toastr.error('Error al guardar');
+  }
+}
 
+// ================= MAPA VER =================
+function abrirMapaVer(lat, lng){
+  var nlat = Number(lat);
+  var nlng = Number(lng);
+  
+  if(isNaN(nlat) || isNaN(nlng)){
+    toastr.warning('Coordenadas inválidas');
+    return;
+  }
+
+  var link = 'https://www.google.com/maps?q=' + encodeURIComponent(nlat + ',' + nlng);
+  document.getElementById("btnAbrirEnGoogle").href = link;
+  document.getElementById("txtLatLng").textContent = "Lat/Lng: " + nlat + ", " + nlng;
+
+  if(!(window.google && window.google.maps)){
+    window.open(link, "_blank");
+    return;
+  }
+
+  modalVer.show();
+
+  setTimeout(function(){
+    var pos = { lat: nlat, lng: nlng };
+    if(!gMapVer){
+      gMapVer = new google.maps.Map(document.getElementById("mapVer"), {
+        zoom: 15,
+        center: pos,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      });
+      gMarkerVer = new google.maps.Marker({ position: pos, map: gMapVer });
+    }else{
+      gMapVer.setCenter(pos);
+      gMarkerVer.setPosition(pos);
+    }
+  }, 250);
+}
+
+// ================= MAPA PICK =================
+function abrirMapaPick(){
+  if(!(window.google && window.google.maps)){
+    toastr.warning('Google Maps API no está cargada');
+    window.open("https://www.google.com/maps", "_blank");
+    return;
+  }
+
+  modalPick.show();
+
+  setTimeout(function(){
+    var lat = parseFloat(document.getElementById("lat").value);
+    var lng = parseFloat(document.getElementById("lng").value);
+
+    if(isNaN(lat)) lat = -0.180653;
+    if(isNaN(lng)) lng = -78.467834;
+
+    var center = { lat: lat, lng: lng };
+
+    if(!gMapPick){
+      gMapPick = new google.maps.Map(document.getElementById("mapPick"), {
+        zoom: 10,
+        center: center,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      });
+
+      gMarkerPick = new google.maps.Marker({ position: center, map: gMapPick });
+
+      gMapPick.addListener("click", function(ev){
+        var p = ev.latLng;
+        document.getElementById("lat").value = p.lat().toFixed(6);
+        document.getElementById("lng").value = p.lng().toFixed(6);
+        gMarkerPick.setPosition(p);
+      });
+
+    }else{
+      gMapPick.setCenter(center);
+      gMarkerPick.setPosition(center);
+    }
+  }, 250);
 }
 </script>
-
 <!--
   Google Maps:
   - Si ya tienes el script en base.html, NO lo dupliques.
