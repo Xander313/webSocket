@@ -30,7 +30,10 @@ class IncidenteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Incidente
         fields = "__all__"
-
+    def create(self, validated_data):
+        validated_data["activo"] = True
+        return super().create(validated_data)
+    
     def validate_evidencia(self, file):
 
         if not file:

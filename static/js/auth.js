@@ -40,7 +40,6 @@ async function authFetch(url, options = {}) {
     options.headers = {
         ...options.headers,
         "Authorization": "Bearer " + token,
-        "Content-Type": "application/json"
     };
 
     let res = await fetch(url, options);

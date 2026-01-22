@@ -183,6 +183,7 @@ def incidentes_api(request):
         if ser.is_valid():
 
             incidente = ser.save(creado_por=request.user)
+            print("GUARDADO ID:", incidente.id)
 
             # 🔔 EVENTO TIEMPO REAL (admin + operador)
             channel_layer = get_channel_layer()

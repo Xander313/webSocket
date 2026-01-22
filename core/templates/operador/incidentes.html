@@ -223,7 +223,6 @@ async function cargarDDL(){
 }
 
 // ================= REGISTRAR =================
-
 async function crearIncidente(){
 
     const form = new FormData();
@@ -238,14 +237,21 @@ async function crearIncidente(){
         form.append("evidencia", evidencia.files[0]);
     }
 
-    await authFetch("/api/incidentes/",{
+    const res = await authFetch("/api/incidentes/",{
         method:"POST",
         body: form
     });
 
-    alert("Incidente registrado");
+    if(!res.ok){
+        const err = await res.json();
+        alert("ERROR:\n"+ JSON.stringify(err));
+        return;
+    }
+
+    alert("Incidente registrado correctamente");
     cargarIncidentes();
 }
+
 
 // ================= LISTAR =================
 
