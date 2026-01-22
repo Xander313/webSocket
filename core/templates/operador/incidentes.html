@@ -13,7 +13,6 @@
     <h2 class="mb-0">Panel Operador - Gestión de Incidentes</h2>
   </div>
 
-  <!-- ================= REGISTRAR INCIDENTE ================= -->
   <div class="card mb-4">
     <div class="card-header text-white" style="background:#004289;">
       <strong>Registrar incidente</strong>
@@ -68,9 +67,6 @@
     </div>
   </div>
 
-  <!-- ================= LISTADO ================= -->
-
-
   <div class="card">
     <div class="card-header">
       <strong>Listado de incidentes</strong>
@@ -99,7 +95,6 @@
   </div>
 </div>
 
-<!-- ================= MODAL ASIGNACIÓN ================= -->
 <div class="modal fade" id="modalAsignacion" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content">
@@ -112,7 +107,6 @@
         <div class="alert alert-info mb-3">
         </div>
 
-        <!-- 1) Rescatista -->
         <div class="mb-3">
           <label class="form-label">1 Rescatista a asignar</label>
           <select class="form-select" id="ddlRescatista"></select>
@@ -120,7 +114,6 @@
         </div>
 
         <div class="row g-3">
-          <!-- 2) Disponibles -->
           <div class="col-lg-6">
             <div class="card">
               <div class="card-header d-flex align-items-center justify-content-between">
@@ -138,7 +131,6 @@
             </div>
           </div>
 
-          <!-- 3) Asignados -->
           <div class="col-lg-6">
             <div class="card">
               <div class="card-header d-flex align-items-center justify-content-between">
@@ -162,7 +154,6 @@
   </div>
 </div>
 
-<!-- ================= MODAL MAPA VER ================= -->
 <div class="modal fade" id="modalMapaVer" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content">
@@ -182,7 +173,6 @@
   </div>
 </div>
 
-<!-- ================= MODAL MAPA PICK ================= -->
 <div class="modal fade" id="modalMapaPick" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered">
     <div class="modal-content">
@@ -331,35 +321,28 @@ function generarMensaje(e){
   let ep = e.endpoint || "";
   let acc = e.accion || "";
 
-  // Normalizar rol
   rol = rol.charAt(0).toUpperCase() + rol.slice(1);
 
-  // CREAR
   if(acc === "CREATE" && ep.includes("/incidentes/") && !ep.includes("asignar")){
     return `${rol} ${user} creó el incidente`;
   }
 
-  // ASIGNAR
   if(ep.includes("/asignar/")){
     return `${rol} ${user} asignó o retiró recursos`;
   }
 
-  // CAMBIO ESTADO
   if(ep.includes("/estado/")){
     return `${rol} ${user} avanzó el estado del incidente`;
   }
 
-  // ELIMINAR
   if(acc === "DELETE"){
     return `${rol} ${user} eliminó el incidente`;
   }
 
-  // UPDATE genérico
   if(acc === "UPDATE"){
     return `${rol} ${user} actualizó información del incidente`;
   }
 
-  // fallback
   return `${rol} ${user} realizó una acción en el sistema`;
 }
 
@@ -379,7 +362,6 @@ document.addEventListener("DOMContentLoaded", function(){
     document.getElementById("modalHistorial")
   );
 
-  // Reset al cerrar
   document.getElementById("modalHistorial")
   .addEventListener("hidden.bs.modal", ()=>{
       historialAbierto = false;
@@ -389,7 +371,6 @@ document.addEventListener("DOMContentLoaded", function(){
 });
 
 
-// ---------------- ABRIR MODAL ----------------
 async function abrirHistorial(id){
 
   incidenteHistorialActual = id;
@@ -431,7 +412,6 @@ function formatFecha(fecha){
 }
 
 
-// ---------------- RENDER EVENTO ----------------
 function renderEvento(e, prepend=false){
 
   let li = document.createElement("li");
@@ -455,13 +435,12 @@ function renderEvento(e, prepend=false){
 }
 
 
-// ---------------- REALTIME ----------------
 function actualizarHistorialRealtime(e){
 
   if(!historialAbierto) return;
   if(e.registro_id != incidenteHistorialActual) return;
 
-  renderEvento(e, true); // prepend = true
+  renderEvento(e, true); 
 }
 
 </script>
@@ -485,17 +464,14 @@ ws.onmessage = (e) => {
   let data = JSON.parse(e.data);
   console.log("📡 Evento WS:", data);
 
-  // catálogos
   if(data.accion === "catalogo_actualizado"){
       cargarCatalogos();
   }
 
-  // incidentes
   if(data.accion === "incidente_update"){
       cargarIncidentes();
   }
 
-  // 🔥 TRAZABILIDAD REALTIME
   if(data.accion === "auditoria_update"){
       actualizarHistorialRealtime(data.payload);
   }
@@ -514,7 +490,6 @@ ws.onerror = (e) => {
 
 
 <script>
-// ===== Fallback authFetch (si base.html no lo define) =====
 if(typeof window.authFetch !== "function"){
   window.authFetch = function(url, options){
     options = options || {};
@@ -528,7 +503,6 @@ if(typeof window.authFetch !== "function"){
   };
 }
 
-// ================= HELPERS =================
 function safeText(v){
   if(v === null || v === undefined) return "";
   return String(v)
@@ -567,7 +541,6 @@ async function fetchJson(url, opts){
   return await r.json();
 }
 
-// ================= STATE =================
 var estadosIncidente = [];
 var tiposRecurso = [];
 var incidenteActualId = null;
@@ -581,7 +554,6 @@ var gMarkerVer = null;
 var gMapPick = null;
 var gMarkerPick = null;
 
-// Configuración de toastr
 toastr.options = {
     "closeButton": true,
     "progressBar": true,
@@ -589,7 +561,6 @@ toastr.options = {
     "timeOut": "3000"
 };
 
-// ================= INIT =================
 document.addEventListener("DOMContentLoaded", function(){
   modalVer = new bootstrap.Modal(document.getElementById("modalMapaVer"));
   modalPick = new bootstrap.Modal(document.getElementById("modalMapaPick"));
@@ -632,7 +603,6 @@ document.addEventListener("DOMContentLoaded", function(){
   })();
 });
 
-// ================= CATÁLOGOS =================
 async function cargarCatalogos(){
   try {
     var tipos = await fetchJson("/api/catalogos/tipo-incidente/");
@@ -681,7 +651,6 @@ function fillSelect(id, items, placeholder){
   });
 }
 
-// ================= CREAR INCIDENTE =================
 async function crearIncidente(){
   var tipo = document.getElementById("tipo").value;
   var sev  = document.getElementById("severidad").value;
@@ -716,8 +685,6 @@ async function crearIncidente(){
       var errorText = await r.text();
       throw new Error(errorText);
     }
-
-    // limpiar formulario
     document.getElementById("desc").value = "";
     document.getElementById("evidencia").value = "";
     document.getElementById("lat").value = "";
@@ -732,7 +699,6 @@ async function crearIncidente(){
   }
 }
 
-// ================= LISTAR INCIDENTES =================
 async function cargarIncidentes(){
   try {
     var data = await fetchJson("/api/incidentes/");
@@ -803,7 +769,6 @@ async function cargarIncidentes(){
   }
 }
 
-// ================= ELIMINAR INCIDENTE =================
 async function eliminarIncidente(id){
   try {
     var r = await authFetch("/api/incidentes/" + id + "/", { 
@@ -830,7 +795,6 @@ async function eliminarIncidente(id){
   }
 }
 
-// ================= AVANZAR ESTADO =================
 async function avanzarEstado(id){
   try {
     var inc = await fetchJson("/api/incidentes/" + id + "/");
@@ -884,7 +848,6 @@ async function avanzarEstado(id){
   }
 }
 
-// ================= ASIGNACIÓN MODAL =================
 async function abrirAsignacion(id){
   try {
     incidenteActualId = id;
@@ -1059,7 +1022,6 @@ function indexById(arr, id){
   return -1;
 }
 
-// ================= GUARDAR ASIGNACIÓN =================
 async function guardarAsignacion(){
   if(!incidenteActualId){
     toastr.warning('No hay incidente seleccionado');
@@ -1073,7 +1035,6 @@ async function guardarAsignacion(){
   var asignar = actuales.filter(function(id){ return originales.indexOf(id) === -1; });
   var desasignar = originales.filter(function(id){ return actuales.indexOf(id) === -1; });
 
-  // Si no hay cambios
   if(asignar.length === 0 && desasignar.length === 0 && !rescatista) {
     toastr.info('No hay cambios para guardar');
     modalAsign.hide();
@@ -1106,7 +1067,6 @@ async function guardarAsignacion(){
   }
 }
 
-// ================= MAPA VER =================
 function abrirMapaVer(lat, lng){
   var nlat = Number(lat);
   var nlng = Number(lng);
@@ -1143,7 +1103,6 @@ function abrirMapaVer(lat, lng){
   }, 250);
 }
 
-// ================= MAPA PICK =================
 function abrirMapaPick(){
   if(!(window.google && window.google.maps)){
     toastr.warning('Google Maps API no está cargada');
@@ -1185,11 +1144,6 @@ function abrirMapaPick(){
   }, 250);
 }
 </script>
-<!--
-  Google Maps:
-  - Si ya tienes el script en base.html, NO lo dupliques.
-  - Si NO lo tienes, agrega esto en base.html o aquí con tu API KEY:
--->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA7lFQ6zmecboYhiJaNi43FELV1wO3jSkY"></script>
 
 {% endblock %}
