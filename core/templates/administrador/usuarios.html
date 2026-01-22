@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 {% block content %}
-
 <div class="row mb-4">
     <div class="col-12">
         <div class="card card-custom">
@@ -11,8 +10,6 @@
                 <button class="btn btn-custom mb-4" onclick="mostrarFormulario()">
                     <i class="fas fa-plus-circle me-2"></i>Nuevo Usuario
                 </button>
-
-                <!-- Formulario -->
                 <div id="formUsuario" style="display:none" class="card mb-4 border-primary">
                     <div class="card-header bg-primary text-white">
                         <h6 class="mb-0">Crear Nuevo Usuario</h6>
@@ -51,8 +48,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Tabla SIMPLE (igual que tu versión original) -->
                 <div class="table-responsive">
                     <table class="table table-striped table-hover" id="tablaUsuarios">
                         <thead class="table-dark">
@@ -74,53 +69,117 @@
 </div>
 
 <script>
-// Cargar usuarios (VERSIÓN ORIGINAL SIMPLE)
+toastr.options = {
+    "closeButton": true,
+    "progressBar": true,
+    "positionClass": "toast-top-right",
+    "timeOut": "3000"
+};
+
+function formatearRol(rol) {
+    const colores = {
+        'admin': 'danger',
+        'operador': 'primary',
+        'rescatista': 'success',
+        'auditor': 'warning'
+    };
+    const color = colores[rol] || 'secondary';
+    return `<span class="badge bg-${color}">${rol}</span>`;
+}
+
 async function cargarUsuarios() {
     try {
         const res = await authFetch("/api/usuarios/");
-        const data = await res.json();
         
+        if (!res.ok) {
+            throw new Error(`Error ${res.status}`);
+        }
+        
+        const data = await res.json();
         const tbody = document.getElementById("tbodyUsuarios");
         tbody.innerHTML = "";
         
+        if (data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        <i class="fas fa-users-slash fa-2x mb-2"></i><br>
+                        No hay usuarios registrados
+                    </td>
+                </tr>`;
+            return;
+        }
+        
         data.forEach(u => {
+            const rolFormateado = formatearRol(u.rol);
+            const estadoBadge = u.activo 
+                ? '<span class="badge bg-success">Activo</span>'
+                : '<span class="badge bg-danger">Inactivo</span>';
+            
             tbody.innerHTML += `
             <tr>
                 <td>${u.id}</td>
-                <td>${u.username}</td>
+                <td><strong>${u.username}</strong></td>
                 <td>${u.email}</td>
-                <td><span class="badge bg-primary">${u.rol}</span></td>
-                <td>${u.activo ? '<span class="badge bg-success">Activo</span>' : '<span class="badge bg-danger">Inactivo</span>'}</td>
+                <td>${rolFormateado}</td>
+                <td>${estadoBadge}</td>
                 <td>
-                    ${u.activo
-                        ? `<button class="btn btn-sm btn-danger" onclick="desactivar(${u.id})">
-                              <i class="fas fa-ban"></i> Desactivar
-                           </button>`
-                        : `<button class="btn btn-sm btn-success" onclick="activar(${u.id})">
-                              <i class="fas fa-check"></i> Activar
-                           </button>`}
+                    <div class="btn-group btn-group-sm" role="group">
+                        ${u.activo
+                            ? `<button class="btn btn-outline-danger" onclick="desactivarUsuario(${u.id})" title="Desactivar">
+                                  <i class="fas fa-user-slash"></i>
+                               </button>`
+                            : `<button class="btn btn-outline-success" onclick="activarUsuario(${u.id})" title="Activar">
+                                  <i class="fas fa-user-check"></i>
+                               </button>`}
+                    </div>
                 </td>
             </tr>`;
         });
         
+        console.log(`${data.length} usuarios cargados`);
+        
     } catch (error) {
-        console.error("Error:", error);
-        toastr.error("Error al cargar usuarios");
+        console.error("Error cargando usuarios:", error);
+        toastr.error("No se pudo cargar la lista de usuarios");
     }
 }
 
-// Crear usuario (VERSIÓN ORIGINAL)
 async function crearUsuario() {
-    if (!username.value.trim() || !email.value.trim() || !password.value.trim()) {
-        toastr.error("Complete todos los campos");
+    const usernameVal = document.getElementById("username").value.trim();
+    const emailVal = document.getElementById("email").value.trim();
+    const passwordVal = document.getElementById("password").value.trim();
+    const rolVal = document.getElementById("rol").value;
+
+    if (!usernameVal) {
+        toastr.warning("Ingrese un nombre de usuario");
+        document.getElementById("username").focus();
+        return;
+    }
+
+    if (!emailVal) {
+        toastr.warning("Ingrese un email");
+        document.getElementById("email").focus();
+        return;
+    }
+
+    if (!passwordVal) {
+        toastr.warning("Ingrese una contraseña");
+        document.getElementById("password").focus();
+        return;
+    }
+
+    if (passwordVal.length < 6) {
+        toastr.warning("La contraseña debe tener al menos 6 caracteres");
+        document.getElementById("password").focus();
         return;
     }
 
     const body = {
-        username: username.value,
-        email: email.value,
-        password: password.value,
-        rol: rol.value
+        username: usernameVal,
+        email: emailVal,
+        password: passwordVal,
+        rol: rolVal
     };
 
     try {
@@ -133,30 +192,26 @@ async function crearUsuario() {
         if (response.ok) {
             toastr.success("Usuario creado correctamente");
             
-            // Limpiar formulario
-            username.value = "";
-            email.value = "";
-            password.value = "";
-            rol.value = "admin";
+            document.getElementById("username").value = "";
+            document.getElementById("email").value = "";
+            document.getElementById("password").value = "";
+            document.getElementById("rol").value = "operador";
             
-            // Ocultar formulario
             ocultarFormulario();
             
-            // Recargar tabla
             cargarUsuarios();
         } else {
             const errorData = await response.json();
-            toastr.error(errorData.detail || "Error al crear usuario");
+            const mensajeError = errorData.error || errorData.detail || "Error al crear usuario";
+            toastr.error(mensajeError);
         }
     } catch (error) {
+        console.error("Error:", error);
         toastr.error("Error de conexión");
     }
 }
 
-// Desactivar usuario
-async function desactivar(id) {
-    if (!confirm("¿Está seguro de desactivar este usuario?")) return;
-
+async function desactivarUsuario(id) {
     try {
         const response = await authFetch(`/api/usuarios/${id}/`, {
             method: "DELETE"
@@ -167,17 +222,16 @@ async function desactivar(id) {
             cargarUsuarios();
         } else {
             const errorData = await response.json();
-            toastr.error(errorData.detail || "Error al desactivar");
+            const mensajeError = errorData.error || errorData.detail || "Error al desactivar";
+            toastr.error(mensajeError);
         }
     } catch (error) {
+        console.error("Error:", error);
         toastr.error("Error de conexión");
     }
 }
 
-// Activar usuario
-async function activar(id) {
-    if (!confirm("¿Está seguro de activar este usuario?")) return;
-
+async function activarUsuario(id) {
     try {
         const response = await authFetch(`/api/usuarios/${id}/`, {
             method: "PUT",
@@ -190,26 +244,87 @@ async function activar(id) {
             cargarUsuarios();
         } else {
             const errorData = await response.json();
-            toastr.error(errorData.detail || "Error al activar");
+            const mensajeError = errorData.error || errorData.detail || "Error al activar";
+            toastr.error(mensajeError);
         }
     } catch (error) {
+        console.error("Error:", error);
         toastr.error("Error de conexión");
     }
 }
 
-// Funciones auxiliares
 function mostrarFormulario() {
     document.getElementById('formUsuario').style.display = 'block';
+    document.getElementById('username').focus();
 }
 
 function ocultarFormulario() {
     document.getElementById('formUsuario').style.display = 'none';
+    document.getElementById("username").value = "";
+    document.getElementById("email").value = "";
+    document.getElementById("password").value = "";
+    document.getElementById("rol").value = "operador";
 }
 
-// Inicializar
+function verificarPermisos() {
+    const role = getUserRole();
+    if (role !== 'admin') {
+        toastr.error("Acceso solo para administradores");
+        setTimeout(() => {
+            window.location.href = "/";
+        }, 1500);
+        return false;
+    }
+    return true;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-    cargarUsuarios();
+    if (verificarPermisos()) {
+        cargarUsuarios();
+    }
 });
 </script>
+
+<style>
+.table-dark {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.table-dark th {
+    border-bottom: none;
+}
+
+.btn-outline-danger:hover {
+    color: white;
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-outline-success:hover {
+    color: white;
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.badge {
+    font-size: 0.85em;
+    padding: 0.4em 0.8em;
+}
+
+#formUsuario {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
 
 {% endblock %}
