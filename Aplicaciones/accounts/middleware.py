@@ -10,7 +10,7 @@ class JWTAuthMiddleware:
     def __call__(self, request):
 
         rutas_protegidas = (
-            request.path.startswith("/adm") or
+            request.path.startswith("/adn") or
             request.path.startswith("/oper")
         )
 

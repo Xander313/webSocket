@@ -26,8 +26,8 @@ urlpatterns = [
     path("api/", include("Aplicaciones.accounts.urls")),
     path("api/", include("Aplicaciones.incidentes.urls")),
     path("", login_view, name="login"),
-    path("adm/panel/", usuarios_admin, name="admin-panel"),
-    path("adm/catalogo/", catalogos_admin, name="admin-catalogo"),
+    path("adn/panel/", usuarios_admin, name="admin-panel"),
+    path("adn/catalogo/", catalogos_admin, name="admin-catalogo"),
     path("oper/incidente/", operador_icidente, name="operador_icidente"),
 
 

@@ -107,7 +107,7 @@ class Recurso(SoftDeleteModel):
     nombre = models.CharField(max_length=100)
     tipo = models.ForeignKey(TipoRecurso, on_delete=models.PROTECT)
     estado = models.ForeignKey(EstadoRecurso, on_delete=models.PROTECT)
-    capacidad = models.IntegerField()
+    capacidad = models.TextField()
 
     objects = ActivosManager()
     all_objects = models.Manager()
