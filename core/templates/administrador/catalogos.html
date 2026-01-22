@@ -1,12 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block content %}
-
 <h2>Gestión de Catálogos</h2>
-
 <hr>
-
-<!-- Botones de navegación de tabs -->
 <div class="tabs">
     <button class="tab-button active" onclick="showTab('tipoIncidente')">Tipo de Incidente</button>
     <button class="tab-button" onclick="showTab('severidad')">Severidad</button>
@@ -15,8 +11,6 @@
     <button class="tab-button" onclick="showTab('tipoRecurso')">Tipo de Recurso</button>
     <button class="tab-button" onclick="showTab('estadoRecurso')">Estado de Recurso</button>
 </div>
-
-<!-- ================= TIPO INCIDENTE ================= -->
 <div id="tipoIncidente" class="tab-content active">
     <div class="form-section">
         <h3>Tipo de Incidente</h3>
@@ -38,8 +32,6 @@
         </table>
     </div>
 </div>
-
-<!-- ================= SEVERIDAD ================= -->
 <div id="severidad" class="tab-content">
     <div class="form-section">
         <h3>Severidad</h3>
@@ -62,7 +54,6 @@
     </div>
 </div>
 
-<!-- ================= ESTADO INCIDENTE ================= -->
 <div id="estadoIncidente" class="tab-content">
     <div class="form-section">
         <h3>Estado Incidente</h3>
@@ -83,7 +74,6 @@
     </div>
 </div>
 
-<!-- ================= RECURSOS ================= -->
 <div id="recursos" class="tab-content">
     <div class="form-section">
         <h3>Recursos</h3>
@@ -110,7 +100,6 @@
     </div>
 </div>
 
-<!-- ================= TIPO RECURSO ================= -->
 <div id="tipoRecurso" class="tab-content">
     <div class="form-section">
         <h3>Tipo de Recurso</h3>
@@ -133,7 +122,6 @@
     </div>
 </div>
 
-<!-- ================= ESTADO RECURSO ================= -->
 <div id="estadoRecurso" class="tab-content">
     <div class="form-section">
         <h3>Estado de Recurso</h3>
@@ -154,14 +142,11 @@
     </div>
 </div>
 
-<!-- DataTables CSS -->
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
-<!-- Toastr CSS -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
 
 <style>
-/* Estilos para tabs */
 .tabs {
     display: flex;
     justify-content: center;
@@ -300,7 +285,6 @@
     }
 }
 
-/* DataTables custom styles */
 .dataTables_wrapper {
     font-family: 'Arial', sans-serif;
 }
@@ -330,7 +314,6 @@
 </style>
 
 <script>
-// Variables globales para instancias DataTables
 let dataTableTI = null;
 let dataTableSev = null;
 let dataTableEst = null;
@@ -338,90 +321,75 @@ let dataTableTR = null;
 let dataTableER = null;
 let dataTableRec = null;
 
-// Función para mostrar tabs
+toastr.options = {
+    "closeButton": true,
+    "progressBar": true,
+    "positionClass": "toast-top-right",
+    "timeOut": "3000"
+};
+
 function showTab(tabId) {
-    // Ocultar todos los tab-content
     const tabs = document.querySelectorAll('.tab-content');
     tabs.forEach(tab => {
         tab.classList.remove('active');
     });
-    // Remover active de botones
     const buttons = document.querySelectorAll('.tab-button');
     buttons.forEach(button => {
         button.classList.remove('active');
     });
-    // Mostrar el tab seleccionado
     document.getElementById(tabId).classList.add('active');
-    // Activar el botón correspondiente
     event.target.classList.add('active');
 }
 
-// Función auxiliar para inicializar/actualizar DataTables
-function initDataTable(tableId, dataTableVar) {
-    if ($.fn.DataTable.isDataTable('#' + tableId)) {
-        $('#' + tableId).DataTable().destroy();
-    }
-    return $('#' + tableId).DataTable({
-        dom: 'Bfrtip',
-        buttons: [
-            'csv', 'excel', 'pdf', 'print'
-        ],
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-        },
-        pageLength: 10,
-        responsive: true
-    });
-}
-
-// =================================================
-// ESTADO RECURSO
-// =================================================
 async function cargarER(){
-    const res = await authFetch("/api/catalogos/estado-recurso/");
-    const data = await res.json();
+    try {
+        const res = await authFetch("/api/catalogos/estado-recurso/");
+        const data = await res.json();
 
-    let rows = [];
-    data.forEach(x=>{
-        rows.push([
-            x.id,
-            `<span contenteditable="true" id="ern${x.id}">${x.nombre}</span>`,
-            `<button onclick="editarER(${x.id})" class="admin-only">✏️</button>
-             <button onclick="eliminarER(${x.id})" class="admin-only">🗑</button>`
-        ]);
-    });
-    
-    // Si la tabla ya está inicializada, actualizar los datos
-    if (dataTableER) {
-        dataTableER.clear();
-        dataTableER.rows.add(rows);
-        dataTableER.draw();
-    } else {
-        // Inicializar DataTable
-        dataTableER = $('#tablaER').DataTable({
-            data: rows,
-            columns: [
-                { title: "ID" },
-                { title: "Nombre" },
-                { title: "Acciones" }
-            ],
-            dom: 'Bfrtip',
-            buttons: [
-                'csv', 'excel', 'pdf', 'print'
-            ],
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
-            pageLength: 10,
-            responsive: true
+        let rows = [];
+        data.forEach(x=>{
+            rows.push([
+                x.id,
+                `<span contenteditable="true" id="ern${x.id}">${x.nombre}</span>`,
+                `<button onclick="editarER(${x.id})" class="admin-only">✏️</button>
+                 <button onclick="eliminarER(${x.id})" class="admin-only">🗑</button>`
+            ]);
         });
+        
+        if (dataTableER) {
+            dataTableER.clear();
+            dataTableER.rows.add(rows);
+            dataTableER.draw();
+        } else {
+            dataTableER = $('#tablaER').DataTable({
+                data: rows,
+                columns: [
+                    { title: "ID" },
+                    { title: "Nombre" },
+                    { title: "Acciones" }
+                ],
+                dom: 'Bfrtip',
+                buttons: [
+                    'csv', 'excel', 'pdf', 'print'
+                ],
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                },
+                pageLength: 10,
+                responsive: true
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error cargando estados de recurso:', error);
+        toastr.error('Error al cargar estados de recurso');
     }
 }
 
 async function crearEstadoRecurso(){
     try {
         if (!er_nombre.value.trim()) {
-            toastr.error("El nombre es requerido");
+            toastr.warning("El nombre es requerido");
             return;
         }
 
@@ -434,106 +402,111 @@ async function crearEstadoRecurso(){
         });
 
         er_nombre.value="";
-        toastr.success("Estado de recurso creado correctamente");
+        toastr.success("Estado de recurso creado");
         await cargarER();
         await cargarCombosRecursos();
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al crear el estado de recurso: " + error.message);
+        toastr.error("Error al crear el estado de recurso");
     }
 }
 
 async function editarER(id){
     try {
+        const nuevoNombre = document.getElementById("ern"+id).innerText.trim();
+        if (!nuevoNombre) {
+            toastr.warning("El nombre no puede estar vacío");
+            return;
+        }
+
         await authFetch(`/api/catalogos/estado-recurso/${id}/`,{
             method:"PUT",
             headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({
-                nombre: document.getElementById("ern"+id).innerText
+                nombre: nuevoNombre
             })
         });
 
-        toastr.success("Estado de recurso actualizado correctamente");
+        toastr.success("Estado de recurso actualizado");
         await cargarER();
         await cargarCombosRecursos();
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al actualizar el estado de recurso: " + error.message);
+        toastr.error("Error al actualizar el estado de recurso");
     }
 }
 
 async function eliminarER(id){
     try {
-        if(!confirm("¿Eliminar estado?")) return;
-
         await authFetch(`/api/catalogos/estado-recurso/${id}/`,{
             method:"DELETE"
         });
 
-        toastr.success("Estado de recurso eliminado correctamente");
+        toastr.success("Estado de recurso eliminado");
         await cargarER();
         await cargarCombosRecursos();
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al eliminar el estado de recurso: " + error.message);
+        toastr.error("Error al eliminar el estado de recurso");
     }
 }
 
-// =================================================
-// TIPO RECURSO
-// =================================================
 async function cargarTR(){
-    const res = await authFetch("/api/catalogos/tipo-recurso/");
-    const data = await res.json();
+    try {
+        const res = await authFetch("/api/catalogos/tipo-recurso/");
+        const data = await res.json();
 
-    let rows = [];
-    data.forEach(x=>{
-        rows.push([
-            x.id,
-            `<span contenteditable="true" id="trn${x.id}">${x.nombre}</span>`,
-            `<span contenteditable="true" id="trd${x.id}">${x.descripcion||""}</span>`,
-            `<button onclick="editarTR(${x.id})" class="admin-only">✏️</button>
-             <button onclick="eliminarTR(${x.id})" class="admin-only">🗑</button>`
-        ]);
-    });
-    
-    // Si la tabla ya está inicializada, actualizar los datos
-    if (dataTableTR) {
-        dataTableTR.clear();
-        dataTableTR.rows.add(rows);
-        dataTableTR.draw();
-    } else {
-        // Inicializar DataTable
-        dataTableTR = $('#tablaTR').DataTable({
-            data: rows,
-            columns: [
-                { title: "ID" },
-                { title: "Nombre" },
-                { title: "Descripción" },
-                { title: "Acciones" }
-            ],
-            dom: 'Bfrtip',
-            buttons: [
-                'csv', 'excel', 'pdf', 'print'
-            ],
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
-            pageLength: 10,
-            responsive: true
+        let rows = [];
+        data.forEach(x=>{
+            rows.push([
+                x.id,
+                `<span contenteditable="true" id="trn${x.id}">${x.nombre}</span>`,
+                `<span contenteditable="true" id="trd${x.id}">${x.descripcion||""}</span>`,
+                `<button onclick="editarTR(${x.id})" class="admin-only">✏️</button>
+                 <button onclick="eliminarTR(${x.id})" class="admin-only">🗑</button>`
+            ]);
         });
+        
+        if (dataTableTR) {
+            dataTableTR.clear();
+            dataTableTR.rows.add(rows);
+            dataTableTR.draw();
+        } else {
+            dataTableTR = $('#tablaTR').DataTable({
+                data: rows,
+                columns: [
+                    { title: "ID" },
+                    { title: "Nombre" },
+                    { title: "Descripción" },
+                    { title: "Acciones" }
+                ],
+                dom: 'Bfrtip',
+                buttons: [
+                    'csv', 'excel', 'pdf', 'print'
+                ],
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                },
+                pageLength: 10,
+                responsive: true
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error cargando tipos de recurso:', error);
+        toastr.error('Error al cargar tipos de recurso');
     }
 }
 
 async function crearTipoRecurso(){
     try {
         if (!tr_nombre.value.trim()) {
-            toastr.error("El nombre es requerido");
+            toastr.warning("El nombre es requerido");
             return;
         }
 
         if (!tr_desc.value.trim()) {
-            toastr.error("La descripción es requerida");
+            toastr.warning("La descripción es requerida");
             return;
         }
 
@@ -548,145 +521,160 @@ async function crearTipoRecurso(){
 
         tr_nombre.value="";
         tr_desc.value="";
-        toastr.success("Tipo de recurso creado correctamente");
+        toastr.success("Tipo de recurso creado");
         await cargarTR();
         await cargarCombosRecursos();
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al crear el tipo de recurso: " + error.message);
+        toastr.error("Error al crear el tipo de recurso");
     }
 }
 
 async function editarTR(id){
     try {
+        const nuevoNombre = document.getElementById("trn"+id).innerText.trim();
+        const nuevaDesc = document.getElementById("trd"+id).innerText.trim();
+        
+        if (!nuevoNombre) {
+            toastr.warning("El nombre no puede estar vacío");
+            return;
+        }
+
+        if (!nuevaDesc) {
+            toastr.warning("La descripción no puede estar vacía");
+            return;
+        }
+
         await authFetch(`/api/catalogos/tipo-recurso/${id}/`,{
             method:"PUT",
             headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({
-                nombre: document.getElementById("trn"+id).innerText,
-                descripcion: document.getElementById("trd"+id).innerText
+                nombre: nuevoNombre,
+                descripcion: nuevaDesc
             })
         });
 
-        toastr.success("Tipo de recurso actualizado correctamente");
+        toastr.success("Tipo de recurso actualizado");
         await cargarTR();
         await cargarCombosRecursos();
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al actualizar el tipo de recurso: " + error.message);
+        toastr.error("Error al actualizar el tipo de recurso");
     }
 }
 
 async function eliminarTR(id){
     try {
-        if(!confirm("¿Eliminar tipo de recurso?")) return;
-
         await authFetch(`/api/catalogos/tipo-recurso/${id}/`,{
             method:"DELETE"
         });
 
-        toastr.success("Tipo de recurso eliminado correctamente");
+        toastr.success("Tipo de recurso eliminado");
         await cargarTR();
         await cargarCombosRecursos();
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al eliminar el tipo de recurso: " + error.message);
+        toastr.error("Error al eliminar el tipo de recurso");
     }
 }
 
-// =================================================
-// CARGAR COMBOS RECURSOS
-// =================================================
+
 async function cargarCombosRecursos(){
-    const [r1,r2] = await Promise.all([
-        authFetch("/api/catalogos/tipo-recurso/"),
-        authFetch("/api/catalogos/estado-recurso/")
-    ]);
+    try {
+        const [r1,r2] = await Promise.all([
+            authFetch("/api/catalogos/tipo-recurso/"),
+            authFetch("/api/catalogos/estado-recurso/")
+        ]);
 
-    const tipos = await r1.json();
-    const ests = await r2.json();
+        const tipos = await r1.json();
+        const ests = await r2.json();
 
-    rec_tipo.innerHTML="";
-    rec_estado.innerHTML="";
+        rec_tipo.innerHTML="";
+        rec_estado.innerHTML="";
 
-    tipos.forEach(x=>{
-        rec_tipo.innerHTML+=`<option value="${x.id}">${x.nombre}</option>`;
-    });
+        tipos.forEach(x=>{
+            rec_tipo.innerHTML+=`<option value="${x.id}">${x.nombre}</option>`;
+        });
 
-    ests.forEach(x=>{
-        rec_estado.innerHTML+=`<option value="${x.id}">${x.nombre}</option>`;
-    });
+        ests.forEach(x=>{
+            rec_estado.innerHTML+=`<option value="${x.id}">${x.nombre}</option>`;
+        });
+
+    } catch (error) {
+        console.error('Error cargando combos de recursos:', error);
+    }
 }
 
-// =================================================
-// RECURSOS
-// =================================================
 async function cargarRecursos(){
-    const res = await authFetch("/api/recursos/");
-    const data = await res.json();
+    try {
+        const res = await authFetch("/api/recursos/");
+        const data = await res.json();
 
-    let rows = [];
-    data.forEach(x=>{
-        rows.push([
-            x.id,
-            `<span contenteditable="true" id="rn${x.id}">${x.nombre}</span>`,
-            x.tipo_nombre,
-            x.estado_nombre,
-            `<span contenteditable="true" id="rc${x.id}">${x.capacidad}</span>`,
-            `<button onclick="editarRecurso(${x.id})" class="admin-only">✏️</button>
-             <button onclick="eliminarRecurso(${x.id})" class="admin-only">🗑</button>`
-        ]);
-    });
-    
-    // Si la tabla ya está inicializada, actualizar los datos
-    if (dataTableRec) {
-        dataTableRec.clear();
-        dataTableRec.rows.add(rows);
-        dataTableRec.draw();
-    } else {
-        // Inicializar DataTable
-        dataTableRec = $('#tablaRec').DataTable({
-            data: rows,
-            columns: [
-                { title: "ID" },
-                { title: "Nombre" },
-                { title: "Tipo" },
-                { title: "Estado" },
-                { title: "Capacidad" },
-                { title: "Acciones" }
-            ],
-            dom: 'Bfrtip',
-            buttons: [
-                'csv', 'excel', 'pdf', 'print'
-            ],
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
-            pageLength: 10,
-            responsive: true
+        let rows = [];
+        data.forEach(x=>{
+            rows.push([
+                x.id,
+                `<span contenteditable="true" id="rn${x.id}">${x.nombre}</span>`,
+                x.tipo_nombre,
+                x.estado_nombre,
+                `<span contenteditable="true" id="rc${x.id}">${x.capacidad}</span>`,
+                `<button onclick="editarRecurso(${x.id})" class="admin-only">✏️</button>
+                 <button onclick="eliminarRecurso(${x.id})" class="admin-only">🗑</button>`
+            ]);
         });
+        
+        if (dataTableRec) {
+            dataTableRec.clear();
+            dataTableRec.rows.add(rows);
+            dataTableRec.draw();
+        } else {
+            dataTableRec = $('#tablaRec').DataTable({
+                data: rows,
+                columns: [
+                    { title: "ID" },
+                    { title: "Nombre" },
+                    { title: "Tipo" },
+                    { title: "Estado" },
+                    { title: "Capacidad" },
+                    { title: "Acciones" }
+                ],
+                dom: 'Bfrtip',
+                buttons: [
+                    'csv', 'excel', 'pdf', 'print'
+                ],
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                },
+                pageLength: 10,
+                responsive: true
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error cargando recursos:', error);
+        toastr.error('Error al cargar recursos');
     }
 }
 
 async function crearRecurso(){
     try {
         if (!rec_nombre.value.trim()) {
-            toastr.error("El nombre es requerido");
+            toastr.warning("El nombre es requerido");
             return;
         }
 
         if (!rec_tipo.value) {
-            toastr.error("El tipo es requerido");
+            toastr.warning("El tipo es requerido");
             return;
         }
 
         if (!rec_estado.value) {
-            toastr.error("El estado es requerido");
+            toastr.warning("El estado es requerido");
             return;
         }
 
         if (!rec_capacidad.value.trim()) {
-            toastr.error("La capacidad es requerida");
+            toastr.warning("La capacidad es requerida");
             return;
         }
 
@@ -703,102 +691,116 @@ async function crearRecurso(){
 
         rec_nombre.value="";
         rec_capacidad.value="";
-        toastr.success("Recurso creado correctamente");
+        toastr.success("Recurso creado");
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al crear el recurso: " + error.message);
+        toastr.error("Error al crear el recurso");
     }
 }
 
 async function editarRecurso(id){
     try {
+        const nuevoNombre = document.getElementById("rn"+id).innerText.trim();
+        const nuevaCapacidad = document.getElementById("rc"+id).innerText.trim();
+        
+        if (!nuevoNombre) {
+            toastr.warning("El nombre no puede estar vacío");
+            return;
+        }
+
+        if (!nuevaCapacidad) {
+            toastr.warning("La capacidad no puede estar vacía");
+            return;
+        }
+
         await authFetch(`/api/recursos/${id}/`,{
             method:"PUT",
             headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({
-                nombre: document.getElementById("rn"+id).innerText,
-                capacidad: document.getElementById("rc"+id).innerText
+                nombre: nuevoNombre,
+                capacidad: nuevaCapacidad
             })
         });
 
-        toastr.success("Recurso actualizado correctamente");
+        toastr.success("Recurso actualizado");
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al actualizar el recurso: " + error.message);
+        toastr.error("Error al actualizar el recurso");
     }
 }
 
 async function eliminarRecurso(id){
     try {
-        if(!confirm("¿Eliminar recurso?")) return;
-
         await authFetch(`/api/recursos/${id}/`,{
             method:"DELETE"
         });
 
-        toastr.success("Recurso eliminado correctamente");
+        toastr.success("Recurso eliminado");
         await cargarRecursos();
     } catch (error) {
-        toastr.error("Error al eliminar el recurso: " + error.message);
+        toastr.error("Error al eliminar el recurso");
     }
 }
 
-// =================================================
-// TIPO INCIDENTE
-// =================================================
-async function cargarTI(){
-    const res = await authFetch("/api/catalogos/tipo-incidente/");
-    const data = await res.json();
 
-    let rows = [];
-    data.forEach(x=>{
-        rows.push([
-            x.id,
-            `<span contenteditable="true" id="tin${x.id}">${x.nombre}</span>`,
-            `<span contenteditable="true" id="tid${x.id}">${x.descripcion}</span>`,
-            `<button onclick="editarTI(${x.id})" class="admin-only">✏️</button>
-             <button onclick="eliminarTI(${x.id})" class="admin-only">🗑</button>`
-        ]);
-    });
-    
-    // Si la tabla ya está inicializada, actualizar los datos
-    if (dataTableTI) {
-        dataTableTI.clear();
-        dataTableTI.rows.add(rows);
-        dataTableTI.draw();
-    } else {
-        // Inicializar DataTable
-        dataTableTI = $('#tablaTI').DataTable({
-            data: rows,
-            columns: [
-                { title: "ID" },
-                { title: "Nombre" },
-                { title: "Descripción" },
-                { title: "Acciones" }
-            ],
-            dom: 'Bfrtip',
-            buttons: [
-                'csv', 'excel', 'pdf', 'print'
-            ],
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
-            pageLength: 10,
-            responsive: true
+async function cargarTI(){
+    try {
+        const res = await authFetch("/api/catalogos/tipo-incidente/");
+        const data = await res.json();
+
+        let rows = [];
+        data.forEach(x=>{
+            rows.push([
+                x.id,
+                `<span contenteditable="true" id="tin${x.id}">${x.nombre}</span>`,
+                `<span contenteditable="true" id="tid${x.id}">${x.descripcion}</span>`,
+                `<button onclick="editarTI(${x.id})" class="admin-only">✏️</button>
+                 <button onclick="eliminarTI(${x.id})" class="admin-only">🗑</button>`
+            ]);
         });
+        
+        if (dataTableTI) {
+            dataTableTI.clear();
+            dataTableTI.rows.add(rows);
+            dataTableTI.draw();
+        } else {
+            dataTableTI = $('#tablaTI').DataTable({
+                data: rows,
+                columns: [
+                    { title: "ID" },
+                    { title: "Nombre" },
+                    { title: "Descripción" },
+                    { title: "Acciones" }
+                ],
+                dom: 'Bfrtip',
+                buttons: [
+                    'csv', 'excel', 'pdf', 'print'
+                ],
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                },
+                pageLength: 10,
+                responsive: true
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error cargando tipos de incidente:', error);
+        toastr.error('Error al cargar tipos de incidente');
     }
 }
 
 async function crearTipoIncidente(){
-    if (!ti_nombre.value.trim()) {
-        toastr.error("El nombre es requerido");
-        return;
-    }
-    if (!ti_desc.value.trim()) {
-        toastr.error("La descripción es requerida");
-        return;
-    }
     try {
+        if (!ti_nombre.value.trim()) {
+            toastr.warning("El nombre es requerido");
+            return;
+        }
+        if (!ti_desc.value.trim()) {
+            toastr.warning("La descripción es requerida");
+            return;
+        }
+        
         await authFetch("/api/catalogos/tipo-incidente/",{
             method:"POST",
             headers:{ "Content-Type":"application/json" },
@@ -807,101 +809,119 @@ async function crearTipoIncidente(){
                 descripcion: ti_desc.value
             })
         });
+        
         ti_nombre.value="";
         ti_desc.value="";
-        toastr.success("Tipo de incidente creado correctamente");
+        toastr.success("Tipo de incidente creado");
         await cargarTI();
-    } catch (e) {
+    } catch (error) {
         toastr.error("Error al crear tipo de incidente");
     }
 }
 
 async function editarTI(id){
     try {
+        const nuevoNombre = document.getElementById("tin"+id).innerText.trim();
+        const nuevaDesc = document.getElementById("tid"+id).innerText.trim();
+        
+        if (!nuevoNombre) {
+            toastr.warning("El nombre no puede estar vacío");
+            return;
+        }
+
+        if (!nuevaDesc) {
+            toastr.warning("La descripción no puede estar vacía");
+            return;
+        }
+
         await authFetch(`/api/catalogos/tipo-incidente/${id}/`,{
             method:"PUT",
             headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({
-                nombre: document.getElementById("tin"+id).innerText,
-                descripcion: document.getElementById("tid"+id).innerText
+                nombre: nuevoNombre,
+                descripcion: nuevaDesc
             })
         });
-        toastr.success("Tipo de incidente actualizado correctamente");
+        
+        toastr.success("Tipo de incidente actualizado");
         await cargarTI();
-    } catch (e) {
+    } catch (error) {
         toastr.error("Error al actualizar tipo de incidente");
     }
 }
 
 async function eliminarTI(id){
-    if(!confirm("¿Eliminar registro?")) return;
     try {
         await authFetch(`/api/catalogos/tipo-incidente/${id}/`,{
             method:"DELETE"
         });
-        toastr.success("Tipo de incidente eliminado correctamente");
+        
+        toastr.success("Tipo de incidente eliminado");
         await cargarTI();
-    } catch (e) {
+    } catch (error) {
         toastr.error("Error al eliminar tipo de incidente");
     }
 }
 
-// =================================================
-// SEVERIDAD
-// =================================================
-async function cargarSev(){
-    const res = await authFetch("/api/catalogos/severidad/");
-    const data = await res.json();
 
-    let rows = [];
-    data.forEach(x=>{
-        rows.push([
-            x.id,
-            `<span contenteditable="true" id="sn${x.id}">${x.nombre}</span>`,
-            `<span contenteditable="true" id="sl${x.id}">${x.nivel}</span>`,
-            `<button onclick="editarSev(${x.id})" class="admin-only">✏️</button>
-             <button onclick="eliminarSev(${x.id})" class="admin-only">🗑</button>`
-        ]);
-    });
-    
-    // Si la tabla ya está inicializada, actualizar los datos
-    if (dataTableSev) {
-        dataTableSev.clear();
-        dataTableSev.rows.add(rows);
-        dataTableSev.draw();
-    } else {
-        // Inicializar DataTable
-        dataTableSev = $('#tablaSev').DataTable({
-            data: rows,
-            columns: [
-                { title: "ID" },
-                { title: "Nombre" },
-                { title: "Nivel" },
-                { title: "Acciones" }
-            ],
-            dom: 'Bfrtip',
-            buttons: [
-                'csv', 'excel', 'pdf', 'print'
-            ],
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
-            pageLength: 10,
-            responsive: true
+async function cargarSev(){
+    try {
+        const res = await authFetch("/api/catalogos/severidad/");
+        const data = await res.json();
+
+        let rows = [];
+        data.forEach(x=>{
+            rows.push([
+                x.id,
+                `<span contenteditable="true" id="sn${x.id}">${x.nombre}</span>`,
+                `<span contenteditable="true" id="sl${x.id}">${x.nivel}</span>`,
+                `<button onclick="editarSev(${x.id})" class="admin-only">✏️</button>
+                 <button onclick="eliminarSev(${x.id})" class="admin-only">🗑</button>`
+            ]);
         });
+        
+        if (dataTableSev) {
+            dataTableSev.clear();
+            dataTableSev.rows.add(rows);
+            dataTableSev.draw();
+        } else {
+            dataTableSev = $('#tablaSev').DataTable({
+                data: rows,
+                columns: [
+                    { title: "ID" },
+                    { title: "Nombre" },
+                    { title: "Nivel" },
+                    { title: "Acciones" }
+                ],
+                dom: 'Bfrtip',
+                buttons: [
+                    'csv', 'excel', 'pdf', 'print'
+                ],
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                },
+                pageLength: 10,
+                responsive: true
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error cargando severidades:', error);
+        toastr.error('Error al cargar severidades');
     }
 }
 
 async function crearSeveridad(){
-    if (!sev_nombre.value.trim()) {
-        toastr.error("El nombre es requerido");
-        return;
-    }
-    if (!sev_nivel.value) {
-        toastr.error("El nivel es requerido");
-        return;
-    }
     try {
+        if (!sev_nombre.value.trim()) {
+            toastr.warning("El nombre es requerido");
+            return;
+        }
+        if (!sev_nivel.value) {
+            toastr.warning("El nivel es requerido");
+            return;
+        }
+        
         await authFetch("/api/catalogos/severidad/",{
             method:"POST",
             headers:{ "Content-Type":"application/json" },
@@ -910,95 +930,113 @@ async function crearSeveridad(){
                 nivel: sev_nivel.value
             })
         });
+        
         sev_nombre.value="";
         sev_nivel.value="";
-        toastr.success("Severidad creada correctamente");
+        toastr.success("Severidad creada");
         await cargarSev();
-    } catch (e) {
+    } catch (error) {
         toastr.error("Error al crear severidad");
     }
 }
 
 async function editarSev(id){
     try {
+        const nuevoNombre = document.getElementById("sn"+id).innerText.trim();
+        const nuevoNivel = document.getElementById("sl"+id).innerText.trim();
+        
+        if (!nuevoNombre) {
+            toastr.warning("El nombre no puede estar vacío");
+            return;
+        }
+
+        if (!nuevoNivel || isNaN(nuevoNivel)) {
+            toastr.warning("El nivel debe ser un número válido");
+            return;
+        }
+
         await authFetch(`/api/catalogos/severidad/${id}/`,{
             method:"PUT",
             headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({
-                nombre: document.getElementById("sn"+id).innerText,
-                nivel: document.getElementById("sl"+id).innerText
+                nombre: nuevoNombre,
+                nivel: parseInt(nuevoNivel)
             })
         });
-        toastr.success("Severidad actualizada correctamente");
+        
+        toastr.success("Severidad actualizada");
         await cargarSev();
-    } catch (e) {
+    } catch (error) {
         toastr.error("Error al actualizar severidad");
     }
 }
 
 async function eliminarSev(id){
-    if(!confirm("¿Eliminar severidad?")) return;
     try {
         await authFetch(`/api/catalogos/severidad/${id}/`,{
             method:"DELETE"
         });
-        toastr.success("Severidad eliminada correctamente");
+        
+        toastr.success("Severidad eliminada");
         await cargarSev();
-    } catch (e) {
+    } catch (error) {
         toastr.error("Error al eliminar severidad");
     }
 }
 
-// =================================================
-// ESTADO INCIDENTE
-// =================================================
-async function cargarEst(){
-    const res = await authFetch("/api/catalogos/estado-incidente/");
-    const data = await res.json();
 
-    let rows = [];
-    data.forEach(x=>{
-        rows.push([
-            x.id,
-            `<span contenteditable="true" id="en${x.id}">${x.nombre}</span>`,
-            `<button onclick="editarEstado(${x.id})" class="admin-only">✏️</button>
-             <button onclick="eliminarEstado(${x.id})" class="admin-only">🗑</button>`
-        ]);
-    });
-    
-    // Si la tabla ya está inicializada, actualizar los datos
-    if (dataTableEst) {
-        dataTableEst.clear();
-        dataTableEst.rows.add(rows);
-        dataTableEst.draw();
-    } else {
-        // Inicializar DataTable
-        dataTableEst = $('#tablaEst').DataTable({
-            data: rows,
-            columns: [
-                { title: "ID" },
-                { title: "Nombre" },
-                { title: "Acciones" }
-            ],
-            dom: 'Bfrtip',
-            buttons: [
-                'csv', 'excel', 'pdf', 'print'
-            ],
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
-            pageLength: 10,
-            responsive: true
+async function cargarEst(){
+    try {
+        const res = await authFetch("/api/catalogos/estado-incidente/");
+        const data = await res.json();
+
+        let rows = [];
+        data.forEach(x=>{
+            rows.push([
+                x.id,
+                `<span contenteditable="true" id="en${x.id}">${x.nombre}</span>`,
+                `<button onclick="editarEstado(${x.id})" class="admin-only">✏️</button>
+                 <button onclick="eliminarEstado(${x.id})" class="admin-only">🗑</button>`
+            ]);
         });
+        
+        if (dataTableEst) {
+            dataTableEst.clear();
+            dataTableEst.rows.add(rows);
+            dataTableEst.draw();
+        } else {
+            dataTableEst = $('#tablaEst').DataTable({
+                data: rows,
+                columns: [
+                    { title: "ID" },
+                    { title: "Nombre" },
+                    { title: "Acciones" }
+                ],
+                dom: 'Bfrtip',
+                buttons: [
+                    'csv', 'excel', 'pdf', 'print'
+                ],
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                },
+                pageLength: 10,
+                responsive: true
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error cargando estados de incidente:', error);
+        toastr.error('Error al cargar estados de incidente');
     }
 }
 
 async function crearEstado(){
-    if (!est_nombre.value.trim()) {
-        toastr.error("El nombre es requerido");
-        return;
-    }
     try {
+        if (!est_nombre.value.trim()) {
+            toastr.warning("El nombre es requerido");
+            return;
+        }
+        
         await authFetch("/api/catalogos/estado-incidente/",{
             method:"POST",
             headers:{ "Content-Type":"application/json" },
@@ -1006,65 +1044,71 @@ async function crearEstado(){
                 nombre: est_nombre.value
             })
         });
+        
         est_nombre.value="";
-        toastr.success("Estado de incidente creado correctamente");
+        toastr.success("Estado de incidente creado");
         await cargarEst();
-    } catch (e) {
+    } catch (error) {
         toastr.error("Error al crear estado de incidente");
     }
 }
 
 async function editarEstado(id){
     try {
+        const nuevoNombre = document.getElementById("en"+id).innerText.trim();
+        
+        if (!nuevoNombre) {
+            toastr.warning("El nombre no puede estar vacío");
+            return;
+        }
+
         await authFetch(`/api/catalogos/estado-incidente/${id}/`,{
             method:"PUT",
             headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({
-                nombre: document.getElementById("en"+id).innerText
+                nombre: nuevoNombre
             })
         });
-        toastr.success("Estado de incidente actualizado correctamente");
+        
+        toastr.success("Estado de incidente actualizado");
         await cargarEst();
-    } catch (e) {
+    } catch (error) {
         toastr.error("Error al actualizar estado de incidente");
     }
 }
 
 async function eliminarEstado(id){
     try {
-        if(!confirm("¿Eliminar estado?")) return;
-
         await authFetch(`/api/catalogos/estado-incidente/${id}/`,{
             method:"DELETE"
         });
 
-        toastr.success("Estado de incidente eliminado correctamente");
+        toastr.success("Estado de incidente eliminado");
         await cargarEst();
     } catch (error) {
-        toastr.error("Error al eliminar el estado de incidente: " + error.message);
+        toastr.error("Error al eliminar el estado de incidente");
     }
 }
 
-// =================================================
-// INIT
-// =================================================
 document.addEventListener("DOMContentLoaded", async ()=>{
-    await cargarTI();
-    await cargarSev();
-    await cargarEst();
-    await cargarTR();
-    await cargarER();
-    await cargarCombosRecursos();
-    await cargarRecursos();
+    try {
+        await Promise.all([
+            cargarTI(),
+            cargarSev(),
+            cargarEst(),
+            cargarTR(),
+            cargarER(),
+            cargarCombosRecursos(),
+            cargarRecursos()
+        ]);
+        
+        console.log('Catálogos cargados');
+        
+    } catch (error) {
+        console.error('Error inicializando catálogos:', error);
+        toastr.error('Error al cargar catálogos');
+    }
 });
-
-// Configuración de toastr
-toastr.options = {
-    "closeButton": true,
-    "progressBar": true,
-    "positionClass": "toast-top-right",
-    "timeOut": "3000"
-};
 </script>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -1075,7 +1119,6 @@ toastr.options = {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-<!-- Toastr JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
 {% endblock %}
